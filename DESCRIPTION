@@ -1,0 +1,30 @@
+Package: rsemverse
+Type: Package
+Title: Read RSEM Gene-Level Results as Gene Symbol Tables
+Version: 0.1.0
+Authors@R: person("Daiki", "Kumakura", role = c("aut", "cre"),
+    email = "55353329+DaikiKumakura@users.noreply.github.com")
+Description: Reads RSEM '*.genes.results' files listed in a sample table and
+    returns a data frame of expected counts or TPM with one row per gene
+    symbol and one column per sample. Symbols come from the Bioconductor
+    organism annotation packages 'org.Hs.eg.db' (human) and 'org.Mm.eg.db'
+    (mouse); Ensembl version suffixes are removed before the lookup and rows
+    that share a symbol are summed.
+License: MIT + file LICENSE
+URL: https://github.com/DaikiKumakura/rsemverse
+BugReports: https://github.com/DaikiKumakura/rsemverse/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+biocViews: RNASeq, Transcriptomics
+Depends:
+    R (>= 4.1.0)
+Imports:
+    AnnotationDbi,
+    data.table,
+    utils
+Suggests:
+    org.Hs.eg.db,
+    org.Mm.eg.db,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

@@ -1,0 +1,10 @@
+^\.git$
+^\.github$
+^\.gitattributes$
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^data-raw$
+^rsemverse\.Rcheck$
+^rsemverse_.*\.tar\.gz$
+^validation$
