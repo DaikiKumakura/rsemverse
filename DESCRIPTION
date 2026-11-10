@@ -25,10 +25,7 @@ Imports:
     data.table,
     utils
 Suggests:
-    knitr,
     org.Hs.eg.db,
     org.Mm.eg.db,
-    rmarkdown,
     testthat (>= 3.0.0)
-VignetteBuilder: knitr
 Config/testthat/edition: 3

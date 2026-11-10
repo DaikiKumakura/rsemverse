@@ -8,34 +8,8 @@ home:
 
 navbar:
   structure:
-    left: [intro, installation, tutorial, how, troubleshooting, realdata, reference, news]
+    left: [reference, news]
     right: [search, github]
-  components:
-    installation:
-      text: Installation
-      href: articles/installation.html
-    tutorial:
-      text: Tutorial
-      href: articles/tutorial.html
-    how:
-      text: How it works
-      href: articles/how-it-works.html
-    troubleshooting:
-      text: Troubleshooting
-      href: articles/troubleshooting.html
-    realdata:
-      text: Real-data check
-      href: articles/real-data.html
-
-articles:
-  - title: Guides
-    navbar: ~
-    contents:
-      - articles/installation
-      - tutorial
-      - how-it-works
-      - troubleshooting
-      - articles/real-data
 
 reference:
   - title: Function
