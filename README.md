@@ -4,6 +4,14 @@
 [![R-CMD-check](https://github.com/DaikiKumakura/rsemverse/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/DaikiKumakura/rsemverse/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
+**Documentation:** <https://daikikumakura.github.io/rsemverse/> ·
+[Get started](https://daikikumakura.github.io/rsemverse/articles/rsemverse.html) ·
+[Installation](https://daikikumakura.github.io/rsemverse/articles/installation.html) ·
+[Tutorial](https://daikikumakura.github.io/rsemverse/articles/tutorial.html) ·
+[How it works](https://daikikumakura.github.io/rsemverse/articles/how-it-works.html) ·
+[Troubleshooting](https://daikikumakura.github.io/rsemverse/articles/troubleshooting.html) ·
+[Real-data check](https://daikikumakura.github.io/rsemverse/articles/real-data.html)
+
 Read RSEM gene-level results as a table of gene symbols by samples.
 
 ```r

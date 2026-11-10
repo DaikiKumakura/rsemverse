@@ -1,0 +1,93 @@
+---
+title: "Real-data check on ENCODE RSEM files"
+output: rmarkdown::html_vignette
+---
+
+The bundled example is synthetic. To see how `rsem_read()` behaves on real RSEM
+output, it was run on six ENCODE gene quantification files. This page gives the
+result; the script that produced it is in the repository, so you can repeat it.
+
+The numbers below come from `validation/encode-k562.R`, run on November 10, 2026
+with org.Hs.eg.db 3.22.0. They are not recomputed when this page is built,
+because the data (about 65 MB) are downloaded from ENCODE.
+
+## Data
+
+Human K562 cells, GRCh38, GENCODE V29. The files have the column layout of RSEM
+`*.genes.results`. Both knockdown experiments name the control experiment below
+as their control.
+
+| Group | ENCODE experiment | Files (replicate 1, 2) |
+| --- | --- | --- |
+| Control (non-targeting shRNA) | ENCSR129RWD | ENCFF587DSG, ENCFF774RTC |
+| PTBP1 knockdown | ENCSR527IVX | ENCFF075OME, ENCFF896CIS |
+| SRSF1 knockdown | ENCSR066VOO | ENCFF711WSO, ENCFF322CJL |
+
+The script checks the MD5 sum of each file after downloading it.
+
+## What the files contain
+
+Each file has 59,526 genes:
+
+| Kind of `gene_id` | Number |
+| --- | --- |
+| Versioned Ensembl gene ID (`ENSG...`) | 58,735 |
+| ERCC spike-in | 97 |
+| Numeric ID | 649 |
+| Ensembl ID ending in `_PAR_Y` | 45 |
+
+## Result
+
+```r
+count <- rsem_read("data", "metadata.csv", species = "human", expr = "count")
+#> rsem_read: 6 samples, 59526 genes -> 59427 rows (species = human, expr = count, org.Hs.eg.db 3.22.0)
+#>   with symbol: 36385 genes (89 symbols merged from several IDs); kept as original IDs: 23141 genes
+```
+
+| | |
+| --- | --- |
+| Rows returned | 59,427 |
+| Genes with a symbol | 36,385, of which 89 symbols were merged from several Ensembl IDs |
+| Genes kept under their original ID | 23,141 (38.9%) |
+| Column sums | equal to the input, for counts and for TPM |
+| Run time | 3.6 seconds for the six samples |
+
+The 23,141 genes kept under their ID are the 22,350 Ensembl IDs without a symbol
+in the OrgDb plus the 791 IDs that are not Ensembl IDs (97 + 649 + 45).
+
+### How much of the data is in the genes without a symbol
+
+Per sample, the genes kept under their original ID hold:
+
+| | Smallest | Largest |
+| --- | --- | --- |
+| Share of the expected counts | 3.76% | 4.90% |
+| Share of the TPM | 5.89% | 7.99% |
+
+So about 39% of the genes have no symbol, but they hold only a few percent of
+the expression. They stay in the table, so that every column still adds up to
+its value in the file. What these genes are was not examined.
+
+### Do the known knockdowns appear?
+
+The mean expected count of the targeted gene in its own knockdown, relative to
+the control:
+
+| Gene | In the knockdown of that gene |
+| --- | --- |
+| PTBP1 | 0.35 |
+| SRSF1 | 0.19 |
+
+Both targets are clearly lower, as expected. This checks that the sample
+columns and the symbol rows are aligned correctly; it is not an analysis of the
+knockdown experiments, which have two replicates per group.
+
+## Repeat it
+
+The script downloads the files, checks them and prints these numbers:
+
+```bash
+Rscript validation/encode-k562.R my-work-folder
+```
+
+It needs an installed rsemverse, `org.Hs.eg.db` and an internet connection.

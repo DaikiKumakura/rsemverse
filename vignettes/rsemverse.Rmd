@@ -1,0 +1,103 @@
+---
+title: "Get started with rsemverse"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Get started with rsemverse}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE, comment = "#>",
+  eval = requireNamespace("org.Hs.eg.db", quietly = TRUE)
+)
+```
+
+RSEM writes one `*.genes.results` file per sample, with genes named by Ensembl
+IDs such as `ENSG00000141510.18`. Downstream work usually needs the opposite:
+one table, **genes by samples, with gene symbols as row names**.
+
+`rsem_read()` makes that table. It is the only function in rsemverse today.
+
+```{r}
+library(rsemverse)
+
+ex <- system.file("extdata", "example", package = "rsemverse")
+
+tpm <- rsem_read(
+  data     = file.path(ex, "data"),
+  metadata = file.path(ex, "metadata.csv"),
+  species  = "human",
+  expr     = "tpm"
+)
+head(tpm, 4)
+```
+
+The result is an ordinary data frame. Give it any name you like and save it
+however you like, for example `write.csv(tpm, "tpm.csv")`.
+
+## What you need
+
+Two things: a folder of RSEM files and a small CSV that lists them.
+
+```text
+metadata.csv
+data/
+  S1.genes.results
+  S2.genes.results
+  S3.genes.results
+```
+
+`metadata.csv` has two columns, `sample_id` and `ref`. `ref` is the name of the
+sample's file inside `data`:
+
+```{r, echo = FALSE, comment = ""}
+cat(readLines(file.path(ex, "metadata.csv")), sep = "\n")
+```
+
+Any other columns are ignored, and the columns of the result follow the order
+of the rows in this file.
+
+## The four arguments
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `data` | `"data"` | folder that contains the RSEM files |
+| `metadata` | `"metadata.csv"` | the CSV above |
+| `species` | none, required | `"human"` or `"mouse"` |
+| `expr` | none, required | `"count"` (RSEM `expected_count`) or `"tpm"` (RSEM `TPM`) |
+
+`species` and `expr` have no default on purpose. A wrong species would leave
+every gene without a symbol, so the function asks you to say which one you
+mean, and it stops if the gene IDs belong to the other species.
+
+## What happens to the genes
+
+1. The version of each Ensembl ID is removed (`ENSG00000141510.18` becomes
+   `ENSG00000141510`) and the gene symbol is looked up in `org.Hs.eg.db`
+   (human) or `org.Mm.eg.db` (mouse).
+2. Rows that end up with the same symbol are **added together**.
+3. A gene without a symbol keeps the `gene_id` from your file, so nothing is
+   dropped and every column adds up to exactly what it did in the input.
+
+A message tells you how many genes fell into each group:
+
+```{r, echo = FALSE}
+invisible(rsem_read(file.path(ex, "data"), file.path(ex, "metadata.csv"),
+                    species = "human", expr = "count"))
+```
+
+The chunk above is the same call with `expr = "count"`. Every number in that
+message is explained in [How it works](how-it-works.html).
+
+## Where to go next
+
+* [Installation](https://daikikumakura.github.io/rsemverse/articles/installation.html):
+  install the package and the annotation packages.
+* [Tutorial](tutorial.html): a complete walk-through on the bundled example,
+  including mouse data and saving the tables.
+* [How it works](how-it-works.html): every rule, with the reasons.
+* [Troubleshooting](troubleshooting.html): each error message and what to do.
+* [Real-data check](https://daikikumakura.github.io/rsemverse/articles/real-data.html):
+  the function on six ENCODE RSEM files.

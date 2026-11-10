@@ -1,0 +1,74 @@
+---
+title: "Installation"
+output: rmarkdown::html_vignette
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+## Requirements
+
+* R 4.1 or newer.
+* The CRAN package `data.table` and the Bioconductor package `AnnotationDbi`.
+* The annotation package for the species you use: `org.Hs.eg.db` for human,
+  `org.Mm.eg.db` for mouse. You need only the one you use.
+
+rsemverse is not on CRAN or Bioconductor. It is installed from GitHub.
+
+## Install
+
+`BiocManager` installs the packages from the right repositories, including the
+Bioconductor ones:
+
+```{r}
+install.packages("BiocManager")
+BiocManager::install("DaikiKumakura/rsemverse")
+```
+
+Then the annotation package of your species:
+
+```{r}
+BiocManager::install("org.Hs.eg.db")   # human
+BiocManager::install("org.Mm.eg.db")   # mouse
+```
+
+`rsem_read()` tells you which one is missing if you forget, and it prints the
+command to install it.
+
+## Check that it works
+
+The package contains a small example that needs no files of your own:
+
+```{r}
+library(rsemverse)
+
+ex <- system.file("extdata", "example", package = "rsemverse")
+tpm <- rsem_read(
+  data     = file.path(ex, "data"),
+  metadata = file.path(ex, "metadata.csv"),
+  species  = "human",
+  expr     = "tpm"
+)
+head(tpm)
+```
+
+You should see a message beginning `rsem_read: 3 samples, 44 genes -> 43 rows`,
+followed by a table with the columns `S1`, `S2` and `S3`.
+
+## Versions and reproducibility
+
+The gene symbols come from the installed annotation package, so the same input
+can give slightly different symbols with different versions. The message that
+`rsem_read()` prints includes the version of the annotation package; record it
+with your results. `sessionInfo()` lists it as well.
+
+## Troubleshooting the installation
+
+| Message | What to do |
+| --- | --- |
+| `there is no package called 'BiocManager'` | `install.packages("BiocManager")` first |
+| The Bioconductor packages cannot be installed or are "built under a newer R" | Check that your R and Bioconductor versions go together (`BiocManager::valid()`) |
+| `The package 'org.Hs.eg.db' is required` | `BiocManager::install("org.Hs.eg.db")` |
+
+The next step is the [tutorial](tutorial.html).

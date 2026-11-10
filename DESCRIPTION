@@ -11,7 +11,8 @@ Description: Reads RSEM '*.genes.results' files listed in a sample table and
     (mouse); Ensembl version suffixes are removed before the lookup and rows
     that share a symbol are summed.
 License: MIT + file LICENSE
-URL: https://github.com/DaikiKumakura/rsemverse
+URL: https://daikikumakura.github.io/rsemverse/,
+    https://github.com/DaikiKumakura/rsemverse
 BugReports: https://github.com/DaikiKumakura/rsemverse/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -24,7 +25,10 @@ Imports:
     data.table,
     utils
 Suggests:
+    knitr,
     org.Hs.eg.db,
     org.Mm.eg.db,
+    rmarkdown,
     testthat (>= 3.0.0)
+VignetteBuilder: knitr
 Config/testthat/edition: 3

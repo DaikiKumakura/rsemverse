@@ -1,0 +1,155 @@
+---
+title: "How rsem_read() works"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{How rsem_read() works}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE, comment = "#>",
+  eval = requireNamespace("org.Hs.eg.db", quietly = TRUE)
+)
+library(rsemverse)
+```
+
+`rsem_read()` makes a handful of decisions on your behalf. This page lists them
+in the order they happen, with the reason for each. The demonstrations query
+`org.Hs.eg.db` directly, so you can see the facts the rules are based on.
+
+## 1. The input is checked before anything is read
+
+The function stops, without returning a partial result, if:
+
+* `data` is not a folder or `metadata` is not a file;
+* `metadata` lacks the column `sample_id` or `ref`, has no rows, has an empty or
+  duplicated `sample_id`, or lists the same file twice;
+* a listed file does not exist in `data`;
+* a file lacks `gene_id` or the column that `expr` selects, has non-numeric or
+  missing values, or has a duplicated `gene_id`;
+* the files do not contain the same genes in the same order.
+
+The last rule matters because the function stacks the files column by column.
+If sample B listed its genes in another order, the numbers would silently
+belong to the wrong genes. See [Troubleshooting](troubleshooting.html) for the
+messages.
+
+Only the columns `gene_id` and the one you chose (`expected_count` or `TPM`)
+are read. Other columns, such as `FPKM`, `length` or the posterior columns of
+newer RSEM versions, are ignored.
+
+## 2. The species must match the IDs
+
+The function looks at how many gene IDs start with `ENSG` (human) or `ENSMUSG`
+(mouse). If your `species` disagrees, it stops. If the IDs are neither (for
+example, if RSEM was run on a reference that names genes by symbol), it stops
+as well, because there is nothing to look up.
+
+## 3. Versions are removed before the lookup
+
+RSEM names genes with Ensembl IDs that carry a version, such as
+`ENSG00000141510.18`. The OrgDb packages use the ID without the version. The
+difference is not cosmetic: with the version the lookup finds nothing.
+
+```{r}
+suppressMessages(library(org.Hs.eg.db))
+lookup <- function(ids) {
+  r <- suppressMessages(AnnotationDbi::select(
+    org.Hs.eg.db, keys = ids, keytype = "ENSEMBL", columns = "SYMBOL"
+  ))
+  setNames(r$SYMBOL[match(ids, r$ENSEMBL)], ids)
+}
+lookup(c("ENSG00000141510.18", "ENSG00000141510"))
+```
+
+So `rsem_read()` removes the version first. Only IDs of the form `ENSG` (or
+`ENSMUSG`, and so on) followed by digits, a dot and digits are changed. Others
+are left alone, which is why they end up unannotated (section 6):
+
+```{r}
+lookup(c("ENSG00000141510", "ENSG00000182378.14_PAR_Y", "ERCC-00002", "10904"))
+```
+
+The version is used only for the lookup. If two files disagreed on a gene's
+version, that would already have stopped the run at step 1, because the
+`gene_id` values differ.
+
+## 4. One symbol per Ensembl ID
+
+An Ensembl ID can map to several records in the OrgDb. The function keeps the
+symbol of the record with the **lowest Entrez ID**, so the choice is fixed and
+repeatable.
+
+```{r}
+all_ids <- AnnotationDbi::keys(org.Hs.eg.db, "ENSEMBL")
+map <- suppressMessages(AnnotationDbi::select(
+  org.Hs.eg.db, keys = all_ids, keytype = "ENSEMBL", columns = c("SYMBOL", "ENTREZID")
+))
+map <- map[!is.na(map$SYMBOL), ]
+n_symbols <- tapply(map$SYMBOL, map$ENSEMBL, function(x) length(unique(x)))
+c(ensembl_ids_with_symbol = length(n_symbols),
+  with_more_than_one_symbol = sum(n_symbols > 1))
+```
+
+## 5. Rows that share a symbol are added
+
+The opposite also happens: different Ensembl IDs can carry the same symbol.
+
+```{r}
+first <- map[order(map$ENSEMBL, as.numeric(map$ENTREZID)), ]
+first <- first[!duplicated(first$ENSEMBL), ]
+per_symbol <- table(first$SYMBOL)
+c(symbols = length(per_symbol),
+  symbols_used_by_several_ids = sum(per_symbol > 1),
+  ids_involved = sum(per_symbol[per_symbol > 1]))
+```
+
+A table with a row name that appears twice cannot be indexed by name, so these
+rows have to be combined. `rsem_read()` **adds** them, for counts and for TPM.
+Both are additive quantities: the counts of two gene models are the counts of
+the pooled gene, and TPM is a proportion of the library that sums over genes.
+Taking the mean or the maximum would make the column totals no longer match the
+file.
+
+## 6. Genes without a symbol keep their ID
+
+Some genes have no symbol in the OrgDb: spike-ins, numeric IDs, IDs ending in
+`_PAR_Y`, and Ensembl IDs that the OrgDb does not cover. Dropping them would be
+simple, but it would also remove their counts. So they stay in the table **under the
+`gene_id` written in your file**, version and all, and the column sums remain
+equal to the input.
+
+If you want only annotated genes, select the rows that do not look like IDs:
+
+```{r, eval = FALSE}
+annotated <- df[!grepl("^ENS", rownames(df)), ]
+```
+
+(Adapt the pattern to the IDs in your data; spike-in names are not Ensembl
+IDs.)
+
+One more safety rule: if a kept `gene_id` is identical to a gene symbol, the
+function stops rather than adding the two rows together.
+
+## 7. What you get
+
+* A data frame; row names are symbols (or kept IDs), column names are
+  `sample_id`.
+* Rows appear in the order in which they first occur in the files; columns
+  follow `metadata.csv`.
+* Values are **not rounded** and TPM is **not renormalized**.
+* A message gives the numbers of samples, genes, rows, genes with a symbol,
+  merged symbols and kept IDs, with the version of the OrgDb package. Use
+  `suppressMessages()` to hide it.
+
+Because symbols come from the installed OrgDb, a newer OrgDb can change which
+symbols exist or which IDs share them. Note the version in the message when you
+report your results.
+
+## What the function does not do
+
+It does not normalize, filter low counts, remove samples, test for differential
+expression, round counts, or write files. It also does not support species
+other than human and mouse, or gzip-compressed RSEM files.

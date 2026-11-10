@@ -4,3 +4,5 @@
 .DS_Store
 *.Rcheck/
 rsemverse_*.tar.gz
+docs/
+inst/doc

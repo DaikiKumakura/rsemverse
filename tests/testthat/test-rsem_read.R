@@ -111,6 +111,17 @@ test_that("the species must match the gene IDs", {
   )
 })
 
+test_that("Ensembl-like IDs unknown to the OrgDb are kept, not an error", {
+  skip_if_not_installed("org.Hs.eg.db")
+  ids <- c("ENSG00099999991.1", "ENSG00099999992.2")
+  p <- make_dataset(values_matrix(ids))
+  msg <- testthat::capture_messages(
+    df <- rsem_read(p$data, p$metadata, species = "human", expr = "count")
+  )
+  expect_equal(rownames(df), ids)
+  expect_match(msg, "with symbol: 0 genes", fixed = TRUE)
+})
+
 test_that("a gene ID equal to a gene symbol is not merged silently", {
   skip_if_not_installed("org.Hs.eg.db")
   p <- make_dataset(values_matrix(c("ENSG00000141510.18", "TP53")))

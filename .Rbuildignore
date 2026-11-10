@@ -8,3 +8,7 @@
 ^rsemverse\.Rcheck$
 ^rsemverse_.*\.tar\.gz$
 ^validation$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^vignettes/articles$

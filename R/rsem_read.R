@@ -242,7 +242,12 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
     .stopf("The package '%s' is required. Install it with BiocManager::install(\"%s\").", orgdb, orgdb)
   }
   db <- .quietly(getExportedValue(orgdb, orgdb))
-  keys <- unique(stable[grepl("^ENS[A-Z]*G[0-9]+$", stable)])
+  # select() fails when none of the keys exist, so keep only keys the OrgDb has.
+  keys <- intersect(
+    unique(stable[grepl("^ENS[A-Z]*G[0-9]+$", stable)]),
+    .quietly(AnnotationDbi::keys(db, keytype = "ENSEMBL"))
+  )
+  if (!length(keys)) return(rep(NA_character_, length(stable)))
   ann <- .quietly(AnnotationDbi::select(
     db,
     keys = keys,
