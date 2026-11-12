@@ -6,6 +6,8 @@
 
 Read RSEM gene-level results as a table of gene symbols by samples.
 
+**Documentation:** [Function reference and examples](https://daikikumakura.github.io/rsemverse/).
+
 ## Usage
 
 Put the RSEM files in a folder and list them in `metadata.csv`:
