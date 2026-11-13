@@ -210,3 +210,70 @@ test_that("a missing OrgDb is explained", {
     "BiocManager::install\\(\"org.Mm.eg.db\"\\)"
   )
 })
+
+test_that("the metadata may have padded cells, Windows line endings and a BOM", {
+  skip_if_not_installed("org.Hs.eg.db")
+  ids <- c("ENSG00000141510.18", "ENSG00000111640.5")
+  p <- make_dataset(values_matrix(ids))
+  con <- file(p$metadata, "wb")
+  writeBin(
+    c(as.raw(c(0xEF, 0xBB, 0xBF)),
+      charToRaw("sample_id,ref\r\n A , A.genes.results \r\nB,B.genes.results\r\n")),
+    con
+  )
+  close(con)
+  df <- suppressMessages(rsem_read(p$data, p$metadata, species = "human", expr = "count"))
+  expect_equal(colnames(df), c("A", "B"))
+  expect_equal(dim(df), c(2L, 2L))
+})
+
+test_that("a single sample gives a one-column data frame", {
+  skip_if_not_installed("org.Hs.eg.db")
+  values <- values_matrix(c("ENSG00000141510.18", "ENSG00000111640.5"), samples = "only")
+  p <- make_dataset(values)
+  df <- suppressMessages(rsem_read(p$data, p$metadata, species = "human", expr = "count"))
+  expect_s3_class(df, "data.frame")
+  expect_equal(colnames(df), "only")
+  expect_equal(rownames(df), c("TP53", "GAPDH"))
+  expect_equal(unname(df[, "only"]), unname(values[, "only"]))
+})
+
+test_that("Ensembl IDs without a version are looked up the same way", {
+  skip_if_not_installed("org.Hs.eg.db")
+  values <- values_matrix(c("ENSG00000141510", "ENSG00000111640"))
+  p <- make_dataset(values)
+  df <- suppressMessages(rsem_read(p$data, p$metadata, species = "human", expr = "count"))
+  expect_equal(rownames(df), c("TP53", "GAPDH"))
+  expect_equal(df["TP53", "A"], values["ENSG00000141510", "A"])
+})
+
+test_that("rows keep the order in which genes first occur in the files", {
+  skip_if_not_installed("org.Hs.eg.db")
+  p <- make_dataset(values_matrix(c("ENSG00000111640.5", "ERCC-00002", "ENSG00000141510.18")))
+  df <- suppressMessages(rsem_read(p$data, p$metadata, species = "human", expr = "count"))
+  expect_equal(rownames(df), c("GAPDH", "ERCC-00002", "TP53"))
+})
+
+test_that("gene IDs that are not Ensembl IDs are refused", {
+  p <- make_dataset(values_matrix(c("ERCC-00002", "ERCC-00003", "10904")))
+  expect_error(
+    rsem_read(p$data, p$metadata, species = "human", expr = "count"),
+    "do not look like Ensembl gene IDs"
+  )
+})
+
+test_that("an Ensembl ID with several symbols gets the one with the lowest Entrez ID", {
+  skip_if_not_installed("org.Hs.eg.db")
+  id <- "ENSG00000004866"
+  ann <- suppressMessages(AnnotationDbi::select(
+    org.Hs.eg.db::org.Hs.eg.db, keys = id, keytype = "ENSEMBL",
+    columns = c("SYMBOL", "ENTREZID")
+  ))
+  ann <- ann[!is.na(ann$SYMBOL), , drop = FALSE]
+  skip_if(nrow(ann) < 2L, "the installed OrgDb maps this ID to a single symbol")
+  expected <- ann$SYMBOL[which.min(as.numeric(ann$ENTREZID))]
+  p <- make_dataset(values_matrix(c(paste0(id, ".9"), "ENSG00000141510.18")))
+  df <- suppressMessages(rsem_read(p$data, p$metadata, species = "human", expr = "count"))
+  expect_true(expected %in% rownames(df))
+  expect_false(any(setdiff(ann$SYMBOL, expected) %in% rownames(df)))
+})

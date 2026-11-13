@@ -53,6 +53,25 @@ It stops with a message if the files do not match (missing file, different
 genes, wrong species, and so on). Values are not rounded or normalized. See
 `?rsem_read` for the details.
 
+## Use the table with other tools
+
+The table goes straight into [bulkdeconv](https://daikikumakura.github.io/bulkdeconv/),
+which estimates cell-type composition or abundance from tumor bulk RNA-seq
+(use `expr = "tpm"` for most methods):
+
+```r
+tpm <- rsem_read("data", "metadata.csv", species = "human", expr = "tpm")
+res <- bulkdeconv::bulkdeconv(tpm, expr = "tpm", species = "human", method = "mcp_counter")
+res$score   # samples x cell types
+```
+
+A method refuses a table with too few of its signature genes, so a small test
+table may not work with every method.
+
+[rsemflow](https://daikikumakura.github.io/rsemflow/) reads the RSEM files
+itself, together with a sample metadata table, to run DESeq2, GSEA, GSVA and
+PCA, so it does not need `rsem_read()` first.
+
 ## Installation
 
 ```r
