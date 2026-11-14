@@ -2,6 +2,7 @@
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/DaikiKumakura/rsemverse/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/DaikiKumakura/rsemverse/actions/workflows/R-CMD-check.yaml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24210460.svg)](https://doi.org/10.5281/zenodo.24210460)
 <!-- badges: end -->
 
 Read RSEM gene-level results as a table of gene symbols by samples, then

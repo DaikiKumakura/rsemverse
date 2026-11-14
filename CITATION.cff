@@ -8,6 +8,10 @@ authors:
     orcid: "https://orcid.org/0000-0001-9859-0720"
 version: "0.2.0"
 date-released: "2026-11-14"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.24210460"
+    description: "Archived release (Zenodo)"
 repository-code: "https://github.com/DaikiKumakura/rsemverse"
 url: "https://daikikumakura.github.io/software/rsemverse.html"
 license: MIT
