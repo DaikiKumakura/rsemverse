@@ -116,7 +116,7 @@ BiocManager::install("org.Hs.eg.db")   # human; org.Mm.eg.db for mouse
 ## Related
 
 - [rsemverse on the author's site](https://daikikumakura.github.io/software/rsemverse.html): summary, installation and status.
-- [bulkdeconv](https://daikikumakura.github.io/software/bulkdeconv.html) turns the table into cell-type scores; [rsemflow](https://daikikumakura.github.io/software/rsemflow.html) produces the RSEM files.
+- [bulkdeconv](https://daikikumakura.github.io/software/bulkdeconv.html) turns the table into cell-type scores; [rsemflow](https://daikikumakura.github.io/software/rsemflow.html) reads the same RSEM files to run DESeq2, GSEA, GSVA and PCA.
 
 ## License
 
