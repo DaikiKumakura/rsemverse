@@ -12,9 +12,16 @@ navbar:
     right: [search, github]
 
 reference:
-  - title: Function
+  - title: Read
     contents:
       - rsem_read
+  - title: Prepare the table
+    contents:
+      - rsem_filter
+      - rsem_normalize
+      - rsem_transform
+      - rsem_subset
+      - rsem_long
   - title: Package
     contents:
       - rsemverse-package

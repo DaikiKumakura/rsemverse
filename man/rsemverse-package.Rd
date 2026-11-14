@@ -6,11 +6,25 @@
 \alias{rsemverse-package}
 \title{rsemverse: read RSEM results as gene symbol tables}
 \description{
-The package currently has one function, \code{\link[=rsem_read]{rsem_read()}}.
+\code{\link[=rsem_read]{rsem_read()}} reads RSEM gene results into a gene symbol by sample table.
+The other functions take that table and return a table of the same layout
+(or a long table), so they can be chained:
+}
+\details{
+\itemize{
+\item \code{\link[=rsem_filter]{rsem_filter()}}: remove lowly expressed or uninformative genes.
+\item \code{\link[=rsem_normalize]{rsem_normalize()}}: normalize between samples (CPM, TMM, upper
+quartile, DESeq2 median of ratios, quantile).
+\item \code{\link[=rsem_transform]{rsem_transform()}}: log2, z-score, centering, ranks.
+\item \code{\link[=rsem_subset]{rsem_subset()}}: keep or remove built-in gene groups (protein-coding,
+mitochondrial, ribosomal, hemoglobin, sex, ERCC).
+\item \code{\link[=rsem_long]{rsem_long()}}: one row per gene and sample, with the sample table.
+}
 }
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://daikikumakura.github.io/rsemverse/}
   \item \url{https://github.com/DaikiKumakura/rsemverse}
   \item Report bugs at \url{https://github.com/DaikiKumakura/rsemverse/issues}
 }

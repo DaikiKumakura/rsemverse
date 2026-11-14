@@ -1,7 +1,7 @@
 Package: rsemverse
 Type: Package
-Title: Read RSEM Gene-Level Results as Gene Symbol Tables
-Version: 0.1.0
+Title: Read and Prepare RSEM Gene-Level Results as Gene Symbol Tables
+Version: 0.2.0
 Authors@R: person("Daiki", "Kumakura", role = c("aut", "cre"),
     email = "55353329+DaikiKumakura@users.noreply.github.com")
 Description: Reads RSEM '*.genes.results' files listed in a sample table and
@@ -9,7 +9,14 @@ Description: Reads RSEM '*.genes.results' files listed in a sample table and
     symbol and one column per sample. Symbols come from the Bioconductor
     organism annotation packages 'org.Hs.eg.db' (human) and 'org.Mm.eg.db'
     (mouse); Ensembl version suffixes are removed before the lookup and rows
-    that share a symbol are summed.
+    that share a symbol are summed. Further functions filter genes (the
+    'edgeR' filterByExpr rule, detection thresholds, most variable genes),
+    normalize between samples (CPM, TMM, upper quartile, DESeq2 median of
+    ratios, quantile), transform values (log2, z-score, ranks), keep or
+    remove built-in gene groups (protein-coding, mitochondrial, ribosomal,
+    hemoglobin, sex-chromosome, spike-in), and return a long table joined
+    with the sample information. The normalization methods give the same
+    results as 'edgeR', 'DESeq2' and 'limma' without depending on them.
 License: MIT + file LICENSE
 URL: https://daikikumakura.github.io/rsemverse/,
     https://github.com/DaikiKumakura/rsemverse
@@ -23,6 +30,7 @@ Depends:
 Imports:
     AnnotationDbi,
     data.table,
+    stats,
     utils
 Suggests:
     org.Hs.eg.db,

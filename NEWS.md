@@ -1,3 +1,26 @@
+# rsemverse 0.2.0
+
+New functions that take the table from `rsem_read()` and return a table of
+the same layout, so they can be chained. None of them needs a gene list or a
+sample grouping from the user.
+
+* `rsem_filter()` removes genes: the edgeR `filterByExpr()` rule with all
+  samples as one group (default for counts), a value threshold in a number or
+  share of samples (default for TPM: TPM >= 1 in 20% of samples), genes that
+  are zero everywhere, or all but the most variable genes.
+* `rsem_normalize()` normalizes between samples: CPM, TMM, upper quartile and
+  DESeq2 median of ratios for counts, and quantile normalization. The tests
+  check that the results equal those of edgeR 4.8.2, DESeq2 1.50.2 and limma
+  3.66.0; the package does not depend on them.
+* `rsem_transform()` applies log2 (with a pseudocount), per-gene z-scores or
+  centering, and within-sample ranks, in the order given.
+* `rsem_subset()` keeps or removes built-in gene groups: protein-coding genes
+  (gene type from the OrgDb), mitochondrial-genome genes, cytosolic ribosomal
+  protein genes, hemoglobin genes, chromosome Y genes with XIST, and ERCC
+  spike-ins.
+* `rsem_long()` returns one row per gene and sample with every column of the
+  sample table added as it is (numbers stay numeric, other columns stay text).
+
 # rsemverse 0.1.0
 
 First version.

@@ -279,7 +279,17 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
 
 #' rsemverse: read RSEM results as gene symbol tables
 #'
-#' The package currently has one function, [rsem_read()].
+#' [rsem_read()] reads RSEM gene results into a gene symbol by sample table.
+#' The other functions take that table and return a table of the same layout
+#' (or a long table), so they can be chained:
+#'
+#' * [rsem_filter()]: remove lowly expressed or uninformative genes.
+#' * [rsem_normalize()]: normalize between samples (CPM, TMM, upper
+#'   quartile, DESeq2 median of ratios, quantile).
+#' * [rsem_transform()]: log2, z-score, centering, ranks.
+#' * [rsem_subset()]: keep or remove built-in gene groups (protein-coding,
+#'   mitochondrial, ribosomal, hemoglobin, sex, ERCC).
+#' * [rsem_long()]: one row per gene and sample, with the sample table.
 #'
 #' @keywords internal
 "_PACKAGE"

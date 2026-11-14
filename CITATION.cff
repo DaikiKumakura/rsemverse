@@ -1,18 +1,18 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
-title: "rsemverse: Read RSEM Gene-Level Results as Gene Symbol Tables"
+title: "rsemverse: Read and Prepare RSEM Gene-Level Results as Gene Symbol Tables"
 authors:
   - family-names: Kumakura
     given-names: Daiki
     orcid: "https://orcid.org/0000-0001-9859-0720"
-version: "0.1.0"
+version: "0.2.0"
 date-released: "2026-11-14"
 repository-code: "https://github.com/DaikiKumakura/rsemverse"
 url: "https://daikikumakura.github.io/software/rsemverse.html"
 license: MIT
 abstract: >-
-  An R package whose function rsem_read() reads RSEM *.genes.results files listed in a sample table (sample_id, ref) and returns expected counts or TPM as a data frame with one row per gene symbol and one column per sample, using org.Hs.eg.db or org.Mm.eg.db for human or mouse.
+  An R package whose function rsem_read() reads RSEM *.genes.results files listed in a sample table (sample_id, ref) and returns expected counts or TPM as a data frame with one row per gene symbol and one column per sample, using org.Hs.eg.db or org.Mm.eg.db for human or mouse. Further functions filter genes, normalize between samples (CPM, TMM, upper quartile, DESeq2 median of ratios, quantile), transform values, keep or remove built-in gene groups, and return a long table with the sample information.
 keywords:
   - "RNA-seq"
   - "RSEM"
