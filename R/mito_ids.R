@@ -1,0 +1,87 @@
+# Ensembl gene IDs of the 37 genes of the mitochondrial genome (13 protein-coding,
+# 2 rRNA, 22 tRNA), from the Ensembl REST API (release 116, retrieved
+# 2026-11-14; /overlap/region/<species>/MT?feature=gene). The OrgDb packages
+# link only the 13 protein-coding genes to Ensembl IDs, so rsem_read() keeps
+# the rRNA and tRNA genes under their Ensembl IDs; this list lets
+# rsem_subset() recognise them. All 37 human IDs are also in the ENCODE RSEM
+# files of validation/ (GENCODE V29, Ensembl 94).
+.mito_ensembl <- list(
+  human = c(
+    "ENSG00000210049", # MT-TF
+    "ENSG00000211459", # MT-RNR1
+    "ENSG00000210077", # MT-TV
+    "ENSG00000210082", # MT-RNR2
+    "ENSG00000209082", # MT-TL1
+    "ENSG00000198888", # MT-ND1
+    "ENSG00000210100", # MT-TI
+    "ENSG00000210107", # MT-TQ
+    "ENSG00000210112", # MT-TM
+    "ENSG00000198763", # MT-ND2
+    "ENSG00000210117", # MT-TW
+    "ENSG00000210127", # MT-TA
+    "ENSG00000210135", # MT-TN
+    "ENSG00000210140", # MT-TC
+    "ENSG00000210144", # MT-TY
+    "ENSG00000198804", # MT-CO1
+    "ENSG00000210151", # MT-TS1
+    "ENSG00000210154", # MT-TD
+    "ENSG00000198712", # MT-CO2
+    "ENSG00000210156", # MT-TK
+    "ENSG00000228253", # MT-ATP8
+    "ENSG00000198899", # MT-ATP6
+    "ENSG00000198938", # MT-CO3
+    "ENSG00000210164", # MT-TG
+    "ENSG00000198840", # MT-ND3
+    "ENSG00000210174", # MT-TR
+    "ENSG00000212907", # MT-ND4L
+    "ENSG00000198886", # MT-ND4
+    "ENSG00000210176", # MT-TH
+    "ENSG00000210184", # MT-TS2
+    "ENSG00000210191", # MT-TL2
+    "ENSG00000198786", # MT-ND5
+    "ENSG00000198695", # MT-ND6
+    "ENSG00000210194", # MT-TE
+    "ENSG00000198727", # MT-CYB
+    "ENSG00000210195", # MT-TT
+    "ENSG00000210196" # MT-TP
+  ),
+  mouse = c(
+    "ENSMUSG00000064336", # mt-Tf
+    "ENSMUSG00000064337", # mt-Rnr1
+    "ENSMUSG00000064338", # mt-Tv
+    "ENSMUSG00000064339", # mt-Rnr2
+    "ENSMUSG00000064340", # mt-Tl1
+    "ENSMUSG00000064341", # mt-Nd1
+    "ENSMUSG00000064342", # mt-Ti
+    "ENSMUSG00000064343", # mt-Tq
+    "ENSMUSG00000064344", # mt-Tm
+    "ENSMUSG00000064345", # mt-Nd2
+    "ENSMUSG00000064346", # mt-Tw
+    "ENSMUSG00000064347", # mt-Ta
+    "ENSMUSG00000064348", # mt-Tn
+    "ENSMUSG00000064349", # mt-Tc
+    "ENSMUSG00000064350", # mt-Ty
+    "ENSMUSG00000064351", # mt-Co1
+    "ENSMUSG00000064352", # mt-Ts1
+    "ENSMUSG00000064353", # mt-Td
+    "ENSMUSG00000064354", # mt-Co2
+    "ENSMUSG00000064355", # mt-Tk
+    "ENSMUSG00000064356", # mt-Atp8
+    "ENSMUSG00000064357", # mt-Atp6
+    "ENSMUSG00000064358", # mt-Co3
+    "ENSMUSG00000064359", # mt-Tg
+    "ENSMUSG00000064360", # mt-Nd3
+    "ENSMUSG00000064361", # mt-Tr
+    "ENSMUSG00000065947", # mt-Nd4l
+    "ENSMUSG00000064363", # mt-Nd4
+    "ENSMUSG00000064364", # mt-Th
+    "ENSMUSG00000064365", # mt-Ts2
+    "ENSMUSG00000064366", # mt-Tl2
+    "ENSMUSG00000064367", # mt-Nd5
+    "ENSMUSG00000064368", # mt-Nd6
+    "ENSMUSG00000064369", # mt-Te
+    "ENSMUSG00000064370", # mt-Cytb
+    "ENSMUSG00000064371", # mt-Tt
+    "ENSMUSG00000064372" # mt-Tp
+  )
+)

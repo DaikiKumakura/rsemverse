@@ -35,8 +35,12 @@ genes each group matched.
 annotation package (NCBI Gene). Many analyses use only these genes, for
 example to compare with proteomics, to reduce noise from lowly expressed
 non-coding RNAs and pseudogenes, or because a signature was built on them.
-\item \code{"mito"}: the genes of the mitochondrial genome (chromosome MT; symbols
-\verb{MT-} in human and \verb{mt-} in mouse). A high share of these reads is a sign
+\item \code{"mito"}: the 37 genes of the mitochondrial genome (chromosome MT;
+symbols \verb{MT-} in human and \verb{mt-} in mouse). The rRNA and tRNA genes have
+no Ensembl link in the OrgDb, so \code{\link[=rsem_read]{rsem_read()}} keeps them under their
+Ensembl IDs; a built-in list of the 37 Ensembl IDs (Ensembl release 116)
+finds them as well, together with the symbols the OrgDb gives to these
+IDs (the ID of \code{MT-TS1} maps to \code{MIR12136}, a microRNA inside it). A high share of these reads is a sign
 of damaged cells or degraded RNA.
 \item \code{"ribo"}: cytosolic ribosomal protein genes (\verb{RPL*}, \verb{RPS*}, \code{RPLP0-2},
 \code{RPSA}; for mouse \verb{Rpl*}, \verb{Rps*}), protein-coding only. Mitochondrial
@@ -56,7 +60,8 @@ and are often removed when sex is not of interest. Pseudoautosomal genes
 groups), then \code{remove}. Genes are matched by symbol; rows that kept their
 Ensembl ID in \code{\link[=rsem_read]{rsem_read()}} are matched by that ID. Genes that the
 annotation package does not know are not in \code{"protein_coding"},
-\code{"ribo"}, \code{"hb"} or \code{"sex"}.
+\code{"ribo"}, \code{"hb"} or \code{"sex"}; for example, chromosome Y genes that
+\code{\link[=rsem_read]{rsem_read()}} kept under their Ensembl ID are not found by \code{"sex"}.
 }
 
 \examples{

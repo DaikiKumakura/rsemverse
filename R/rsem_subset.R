@@ -11,8 +11,12 @@
 #'   annotation package (NCBI Gene). Many analyses use only these genes, for
 #'   example to compare with proteomics, to reduce noise from lowly expressed
 #'   non-coding RNAs and pseudogenes, or because a signature was built on them.
-#' * `"mito"`: the genes of the mitochondrial genome (chromosome MT; symbols
-#'   `MT-` in human and `mt-` in mouse). A high share of these reads is a sign
+#' * `"mito"`: the 37 genes of the mitochondrial genome (chromosome MT;
+#'   symbols `MT-` in human and `mt-` in mouse). The rRNA and tRNA genes have
+#'   no Ensembl link in the OrgDb, so [rsem_read()] keeps them under their
+#'   Ensembl IDs; a built-in list of the 37 Ensembl IDs (Ensembl release 116)
+#'   finds them as well, together with the symbols the OrgDb gives to these
+#'   IDs (the ID of `MT-TS1` maps to `MIR12136`, a microRNA inside it). A high share of these reads is a sign
 #'   of damaged cells or degraded RNA.
 #' * `"ribo"`: cytosolic ribosomal protein genes (`RPL*`, `RPS*`, `RPLP0-2`,
 #'   `RPSA`; for mouse `Rpl*`, `Rps*`), protein-coding only. Mitochondrial
@@ -31,7 +35,8 @@
 #' groups), then `remove`. Genes are matched by symbol; rows that kept their
 #' Ensembl ID in [rsem_read()] are matched by that ID. Genes that the
 #' annotation package does not know are not in `"protein_coding"`,
-#' `"ribo"`, `"hb"` or `"sex"`.
+#' `"ribo"`, `"hb"` or `"sex"`; for example, chromosome Y genes that
+#' [rsem_read()] kept under their Ensembl ID are not found by `"sex"`.
 #'
 #' @inheritParams rsem_filter
 #' @param species `"human"` or `"mouse"`. Required.
@@ -93,7 +98,8 @@ rsem_subset <- function(x, species, keep = NULL, remove = NULL) {
   for (g in groups) {
     out[, g] <- switch(g,
       protein_coding = coding,
-      mito = grepl("^MT-", genes, ignore.case = TRUE) | (!is.na(ann$chr) & ann$chr == "MT"),
+      mito = grepl("^MT-", genes, ignore.case = TRUE) | (!is.na(ann$chr) & ann$chr == "MT") |
+        .strip_ensembl_version(genes) %in% .mito_ensembl[[species]] | genes %in% .mito_symbols(species),
       # Pseudogenes (RPL10P1, Hba-ps3) and regulatory regions (HBB-LCR) share
       # these prefixes, so both groups are limited to protein-coding genes.
       ribo = coding & grepl("^RP[SL][0-9]+[A-Z]?[0-9]?$|^RPLP[0-2]$|^RPSA$", genes, ignore.case = TRUE),
@@ -103,6 +109,18 @@ rsem_subset <- function(x, species, keep = NULL, remove = NULL) {
     )
   }
   out
+}
+
+# Symbols that the OrgDb gives to the mitochondrial Ensembl IDs. rsem_read()
+# names rows by these, and one of them is not an MT- symbol: the ID of MT-TS1
+# maps to MIR12136, a microRNA inside it.
+.mito_symbols <- function(species) {
+  orgdb <- .orgdb_package(species)
+  db <- .quietly(getExportedValue(orgdb, orgdb))
+  keys <- intersect(.mito_ensembl[[species]], .quietly(AnnotationDbi::keys(db, keytype = "ENSEMBL")))
+  if (!length(keys)) return(character(0))
+  a <- .quietly(AnnotationDbi::select(db, keys = keys, keytype = "ENSEMBL", columns = "SYMBOL"))
+  unique(a$SYMBOL[!is.na(a$SYMBOL)])
 }
 
 # Gene type and chromosome for each row: symbols are looked up as SYMBOL and

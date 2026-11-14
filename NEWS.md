@@ -17,9 +17,15 @@ sample grouping from the user.
 * `rsem_subset()` keeps or removes built-in gene groups: protein-coding genes
   (gene type from the OrgDb), mitochondrial-genome genes, cytosolic ribosomal
   protein genes, hemoglobin genes, chromosome Y genes with XIST, and ERCC
-  spike-ins.
+  spike-ins. Mitochondrial rRNA and tRNA genes, which have no Ensembl link in
+  the OrgDb and keep their Ensembl ID in `rsem_read()`, are found through a
+  built-in list of the 37 mitochondrial Ensembl IDs.
 * `rsem_long()` returns one row per gene and sample with every column of the
   sample table added as it is (numbers stay numeric, other columns stay text).
+
+On the six ENCODE K562 files in `validation/`, every function ran on all
+59,427 rows, and the normalized values were within 3e-16 (relative) of edgeR,
+DESeq2 and limma. See `validation/README.md`.
 
 # rsemverse 0.1.0
 

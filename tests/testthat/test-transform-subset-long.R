@@ -81,6 +81,16 @@ test_that("each built-in group matches the expected human genes", {
   expect_false(any(c("MALAT1", "XIST", "RPL10P1", "ERCC-00002", "NOT_A_GENE") %in% pc))
 })
 
+test_that("mitochondrial rRNA and tRNA genes kept under their Ensembl IDs are found", {
+  skip_if_not_installed("org.Hs.eg.db")
+  genes <- c("MT-CO1", "ENSG00000210082.2", "ENSG00000210049", "MIR12136", "ENSG00000141510", "TP53")
+  x <- as.data.frame(matrix(1, length(genes), 2, dimnames = list(genes, c("S1", "S2"))))
+  expect_equal(subset_names(x, "human", keep = "mito"), c("MT-CO1", "ENSG00000210082.2", "ENSG00000210049", "MIR12136"))
+  expect_length(.mito_ensembl$human, 37L)
+  expect_length(.mito_ensembl$mouse, 37L)
+  expect_true(all(grepl("^ENSMUSG", .mito_ensembl$mouse)))
+})
+
 test_that("keep is applied before remove, and the order is kept", {
   skip_if_not_installed("org.Hs.eg.db")
   x <- human_table()
