@@ -224,7 +224,7 @@ heat   <- rsem_transform(top, c("log2", "zscore"))
   preserved the column sums. The edgeR rule kept the same 12,808 genes as
   `edgeR::filterByExpr()`, every normalization was within 3e-16 (relative) of
   the reference tools, and all 37 mitochondrial genes were found. See
-  [`validation/`](validation/).
+  [`validation/`](https://github.com/DaikiKumakura/rsemverse/tree/main/validation).
 - **Platforms:** R CMD check passes on Linux, macOS and Windows in CI.
 
 ## Related tools
@@ -237,7 +237,7 @@ heat   <- rsem_transform(top, c("log2", "zscore"))
 ## Citation
 
 Cite the archived version: <https://doi.org/10.5281/zenodo.24210460>. The
-citation metadata is in [`CITATION.cff`](CITATION.cff).
+citation metadata is in [`CITATION.cff`](https://github.com/DaikiKumakura/rsemverse/blob/main/CITATION.cff).
 
 ## License
 
