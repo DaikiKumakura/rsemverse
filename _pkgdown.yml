@@ -4,7 +4,11 @@ template:
   bootstrap: 5
 
 home:
-  title: "rsemverse: RSEM gene results as gene symbol tables"
+  title: "rsemverse: from RSEM gene results to analysis-ready gene tables"
+  description: >-
+    Read RSEM gene results into a gene symbol by sample table, then filter,
+    select, normalize and transform it, and turn it into a long table, for
+    human and mouse bulk RNA-seq.
 
 navbar:
   structure:
@@ -12,15 +16,29 @@ navbar:
     right: [search, github]
 
 reference:
-  - title: Read
+  - title: "1. Read"
+    desc: "RSEM files and a sample table in, one gene symbol by sample table out."
     contents:
       - rsem_read
-  - title: Prepare the table
+  - title: "2. Filter"
+    desc: "Remove lowly expressed genes, or keep the most variable ones."
     contents:
       - rsem_filter
-      - rsem_normalize
-      - rsem_transform
+  - title: "3. Select genes"
+    desc: "Keep or remove gene groups taken from the OrgDb; no gene list needed."
+    contents:
       - rsem_subset
+  - title: "4. Normalize"
+    desc: "Make samples comparable: CPM, TMM, upper quartile, DESeq2, quantile."
+    contents:
+      - rsem_normalize
+  - title: "5. Transform"
+    desc: "log2, z-score, centering and ranks for plots, clustering and scores."
+    contents:
+      - rsem_transform
+  - title: "6. Long table"
+    desc: "One row per gene and sample, with the sample table, for ggplot2."
+    contents:
       - rsem_long
   - title: Package
     contents:

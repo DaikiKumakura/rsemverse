@@ -4,23 +4,33 @@
 \name{rsemverse-package}
 \alias{rsemverse}
 \alias{rsemverse-package}
-\title{rsemverse: read RSEM results as gene symbol tables}
+\title{rsemverse: from RSEM gene results to analysis-ready gene tables}
 \description{
-\code{\link[=rsem_read]{rsem_read()}} reads RSEM gene results into a gene symbol by sample table.
-The other functions take that table and return a table of the same layout
-(or a long table), so they can be chained:
+rsemverse turns RSEM \verb{*.genes.results} files into one table of gene
+symbols by samples and prepares that table for analysis. Every function
+takes the same table and returns the same table, so the steps chain in any
+order, and each prints what it did.
 }
-\details{
-\itemize{
-\item \code{\link[=rsem_filter]{rsem_filter()}}: remove lowly expressed or uninformative genes.
+\section{Workflow}{
+
+\enumerate{
+\item \code{\link[=rsem_read]{rsem_read()}}: read counts or TPM into a gene symbol by sample table.
+\item \code{\link[=rsem_filter]{rsem_filter()}}: remove lowly expressed genes (edgeR \code{filterByExpr()}
+rule, detection thresholds) or keep the most variable genes.
+\item \code{\link[=rsem_subset]{rsem_subset()}}: keep or remove gene groups (protein-coding,
+mitochondrial, ribosomal, hemoglobin, sex, ERCC) taken from the OrgDb.
 \item \code{\link[=rsem_normalize]{rsem_normalize()}}: normalize between samples (CPM, TMM, upper
 quartile, DESeq2 median of ratios, quantile).
 \item \code{\link[=rsem_transform]{rsem_transform()}}: log2, z-score, centering, ranks.
-\item \code{\link[=rsem_subset]{rsem_subset()}}: keep or remove built-in gene groups (protein-coding,
-mitochondrial, ribosomal, hemoglobin, sex, ERCC).
-\item \code{\link[=rsem_long]{rsem_long()}}: one row per gene and sample, with the sample table.
+\item \code{\link[=rsem_long]{rsem_long()}}: one row per gene and sample, with every column of the
+sample table, for ggplot2 and dplyr.
 }
+
+No gene list and no sample grouping are needed. Filtering and
+normalization give the same results as edgeR, DESeq2 and limma without
+depending on them.
 }
+
 \seealso{
 Useful links:
 \itemize{

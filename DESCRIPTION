@@ -1,22 +1,22 @@
 Package: rsemverse
 Type: Package
-Title: Read and Prepare RSEM Gene-Level Results as Gene Symbol Tables
+Title: From RSEM Gene Results to Analysis-Ready Gene Tables
 Version: 0.2.0
 Authors@R: person("Daiki", "Kumakura", role = c("aut", "cre"),
     email = "55353329+DaikiKumakura@users.noreply.github.com")
-Description: Reads RSEM '*.genes.results' files listed in a sample table and
-    returns a data frame of expected counts or TPM with one row per gene
-    symbol and one column per sample. Symbols come from the Bioconductor
-    organism annotation packages 'org.Hs.eg.db' (human) and 'org.Mm.eg.db'
-    (mouse); Ensembl version suffixes are removed before the lookup and rows
-    that share a symbol are summed. Further functions filter genes (the
-    'edgeR' filterByExpr rule, detection thresholds, most variable genes),
-    normalize between samples (CPM, TMM, upper quartile, DESeq2 median of
-    ratios, quantile), transform values (log2, z-score, ranks), keep or
-    remove built-in gene groups (protein-coding, mitochondrial, ribosomal,
-    hemoglobin, sex-chromosome, spike-in), and return a long table joined
-    with the sample information. The normalization methods give the same
-    results as 'edgeR', 'DESeq2' and 'limma' without depending on them.
+Description: Turns RSEM '*.genes.results' files into analysis-ready gene
+    tables for human and mouse bulk RNA-seq. The files listed in a sample
+    table are read into one table of expected counts or TPM with one row per
+    gene symbol and one column per sample, using the Bioconductor annotation
+    packages 'org.Hs.eg.db' and 'org.Mm.eg.db'. The same table is then
+    filtered (the 'edgeR' filterByExpr rule, detection thresholds, most
+    variable genes), reduced to built-in gene groups (protein-coding,
+    mitochondrial, ribosomal, hemoglobin, sex-chromosome, spike-in),
+    normalized between samples (CPM, TMM, upper quartile, DESeq2 median of
+    ratios, quantile), transformed (log2, z-score, ranks), and returned as a
+    long table with the sample information. No gene list or sample grouping
+    is needed, and filtering and normalization give the same results as
+    'edgeR', 'DESeq2' and 'limma' without depending on them.
 License: MIT + file LICENSE
 URL: https://daikikumakura.github.io/rsemverse/,
     https://github.com/DaikiKumakura/rsemverse

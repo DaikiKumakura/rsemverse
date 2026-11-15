@@ -277,19 +277,28 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
   out
 }
 
-#' rsemverse: read RSEM results as gene symbol tables
+#' rsemverse: from RSEM gene results to analysis-ready gene tables
 #'
-#' [rsem_read()] reads RSEM gene results into a gene symbol by sample table.
-#' The other functions take that table and return a table of the same layout
-#' (or a long table), so they can be chained:
+#' rsemverse turns RSEM `*.genes.results` files into one table of gene
+#' symbols by samples and prepares that table for analysis. Every function
+#' takes the same table and returns the same table, so the steps chain in any
+#' order, and each prints what it did.
 #'
-#' * [rsem_filter()]: remove lowly expressed or uninformative genes.
-#' * [rsem_normalize()]: normalize between samples (CPM, TMM, upper
-#'   quartile, DESeq2 median of ratios, quantile).
-#' * [rsem_transform()]: log2, z-score, centering, ranks.
-#' * [rsem_subset()]: keep or remove built-in gene groups (protein-coding,
-#'   mitochondrial, ribosomal, hemoglobin, sex, ERCC).
-#' * [rsem_long()]: one row per gene and sample, with the sample table.
+#' @section Workflow:
+#' 1. [rsem_read()]: read counts or TPM into a gene symbol by sample table.
+#' 2. [rsem_filter()]: remove lowly expressed genes (edgeR `filterByExpr()`
+#'    rule, detection thresholds) or keep the most variable genes.
+#' 3. [rsem_subset()]: keep or remove gene groups (protein-coding,
+#'    mitochondrial, ribosomal, hemoglobin, sex, ERCC) taken from the OrgDb.
+#' 4. [rsem_normalize()]: normalize between samples (CPM, TMM, upper
+#'    quartile, DESeq2 median of ratios, quantile).
+#' 5. [rsem_transform()]: log2, z-score, centering, ranks.
+#' 6. [rsem_long()]: one row per gene and sample, with every column of the
+#'    sample table, for ggplot2 and dplyr.
+#'
+#' No gene list and no sample grouping are needed. Filtering and
+#' normalization give the same results as edgeR, DESeq2 and limma without
+#' depending on them.
 #'
 #' @keywords internal
 "_PACKAGE"
