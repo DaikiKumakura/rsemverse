@@ -1,0 +1,94 @@
+---
+title: "From RSEM files to z-scores against controls"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+This page goes from a folder of RSEM files to values ready for plots, using
+only functions of rsemverse 0.3.0. The folder is assumed to hold one
+`*.genes.results` file per sample (and, for the last section, the
+`*.isoforms.results` files), with a sample table that names the groups:
+
+```text
+rsem/                     metadata.csv
+  CTRL_1.genes.results      sample_id,ref,group
+  CTRL_2.genes.results      CTRL_1,CTRL_1.genes.results,control
+  DRUG_1.genes.results      CTRL_2,CTRL_2.genes.results,control
+  DRUG_2.genes.results      DRUG_1,DRUG_1.genes.results,drug
+                            DRUG_2,DRUG_2.genes.results,drug
+```
+
+## 1. Read
+
+```{r}
+library(rsemverse)
+tpm <- rsem_read("rsem", metadata = NULL, species = "human", expr = "tpm")
+```
+
+`metadata = NULL` finds the files and prints which file became which sample.
+With a sample table, `rsem_read("rsem", "metadata.csv", ...)` reads the files
+it lists instead.
+
+## 2. Check the effective lengths before tximport or DESeq2
+
+```{r}
+len <- rsem_read("rsem", metadata = NULL, species = "human", expr = "length")
+attr(len, "zero_length")           # genes with length 0, per sample
+lp <- rsem_length_profile(len)
+subset(lp, zero_fraction > 0 & zero_fraction < 1)
+```
+
+Genes with length 0 in some samples are the ones that stop
+`DESeqDataSetFromTximport()`. Removing them, or importing the transcript-level
+files, avoids changing their length offset.
+
+## 3. Choose a detection threshold
+
+```{r}
+rsem_detection_curve(tpm, "tpm", thresholds = c(0.5, 1, 2, 5), min_samples = c(1, 0.5))
+filtered <- rsem_filter(tpm, "tpm", min_value = 1, min_samples = 0.5)
+```
+
+Each row of the curve is the number of genes `rsem_filter()` keeps with
+those settings.
+
+## 4. Remove rRNA and see the gene-type composition
+
+```{r}
+gtf <- "gencode.v29.annotation.gtf.gz"   # the annotation the RSEM reference was built from
+rsem_biotype_profile(tpm, gtf, types = c("protein_coding", "lncRNA", "rRNA", "Mt_rRNA"))
+filtered <- rsem_subset(filtered, remove = c("rrna", "mito_rrna"), annotation = gtf)
+```
+
+## 5. Z-scores against the controls
+
+```{r}
+ref <- rsem_fit_reference(filtered, "control", metadata = "metadata.csv", group = "group")
+z <- rsem_apply_reference(filtered, ref, zero_sd = "drop")
+```
+
+`ref` keeps the control means and standard deviations on the
+`log2(TPM + 1)` scale. A later batch on the same scale is scored against the
+same controls with `rsem_apply_reference(new_tpm, ref)`.
+
+## 6. Plot or share
+
+```{r}
+long <- rsem_long(z, metadata = "metadata.csv")
+ggplot2::ggplot(subset(long, gene == "CDKN1A"), ggplot2::aes(group, value)) +
+  ggplot2::geom_point() + ggplot2::labs(y = "z-score against controls")
+
+rsem_write(tpm, "tpm.tsv.gz", annotation = gtf)   # gene, gene IDs, gene type, samples
+```
+
+## 7. Transcripts
+
+```{r}
+iso <- rsem_read("rsem", metadata = NULL, species = "human", expr = "tpm", level = "isoform")
+main <- rsem_select_isoforms(iso, min_tpm = 1, min_fraction = 0.1, rule = "all")
+```
+
+The selected values are the original estimates; to quantify against the
+selection, build a new reference and rerun RSEM.

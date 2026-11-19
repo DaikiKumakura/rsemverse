@@ -1,0 +1,63 @@
+---
+title: "Hand-written RSEM steps and their rsemverse equivalents"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+Scripts that start from RSEM output often contain the same 10 to 50 lines:
+merge the files, attach gene names, choose a TPM threshold, remove rRNA,
+handle zero effective lengths, keep the main isoform. This page lists such
+steps, where each one appears in public material, and the rsemverse call that
+does the same with the checks that hand-written code tends to skip. Sources
+were checked on November 19, 2026; they show that the steps exist, not how
+often they are used.
+
+## Steps and calls
+
+| Step in hand-written code | Where it appears | rsemverse |
+|---|---|---|
+| Paste the TPM column of every file side by side | Shell and R snippets in tutorials and forum answers | `rsem_read()`: rows matched by ID, files must have the same genes in the same order, a missing file stops the run |
+| Name samples after their files | Most merging scripts | `rsem_read(metadata = NULL)`: prints the files found, stops on duplicated names |
+| Attach gene symbols and keep IDs that have none | Annotation joins after `tximport` | `rsem_read()`: unmapped IDs kept, rows with the same symbol summed (not the maximum), IDs kept in `attr(x, "gene_ids")`, `rsem_write()` writes them |
+| Count genes above several TPM thresholds | Trinity, [`count_matrix_features_given_MIN_TPM_threshold.pl`](https://github.com/trinityrnaseq/trinityrnaseq/blob/master/util/misc/count_matrix_features_given_MIN_TPM_threshold.pl) | `rsem_detection_curve()`: the same counts, plus sample requirements, equal to what `rsem_filter()` keeps |
+| Replace zero effective lengths by 1 before `DESeqDataSetFromTximport()` | Bioconductor support threads ([1](https://support.bioconductor.org/p/92763), [2](https://support.bioconductor.org/p/9154009)) | `rsem_read(expr = "length")` reports the zeros; `rsem_length_profile()` finds the genes; the choice stays with the user |
+| Compare RSEM gene effective lengths across samples | [mikelove/avgtxlength](https://github.com/mikelove/avgtxlength) | `rsem_length_profile()` |
+| Remove rRNA genes found in the GTF | Pipelines that read `gene_type` / `gene_biotype` | `rsem_subset(remove = c("rrna", "mito_rrna"), annotation = gtf)`: stops if the GTF has no such genes |
+| Share of each gene type per sample | QC scripts | `rsem_biotype_profile()`: `NA`, not 0, for types missing from the annotation |
+| Keep isoforms by TPM, by share of the dominant isoform, or only the dominant one | Trinity, [`filter_low_expr_transcripts.pl`](https://github.com/trinityrnaseq/trinityrnaseq/blob/master/util/filter_low_expr_transcripts.pl) | `rsem_select_isoforms()`: the same rules, the same exclusion between the share rule and "dominant only", explicit combination over samples |
+| Keep transcripts above an IsoPct | [Trinity documentation](https://github.com/trinityrnaseq/trinityrnaseq/wiki) | `rsem_read(level = "isoform", expr = "isopct")` then a filter on the table |
+| Z-scores against control samples | Scripts that compute each gene's mean and SD in controls | `rsem_fit_reference()` and `rsem_apply_reference()`: fit once, apply to any samples |
+| TMMwsp factors | `edgeR::calcNormFactors(method = "TMMwsp")` | `rsem_normalize(method = "tmmwsp")`, equal to edgeR |
+
+## What rsemverse does not copy
+
+Some shortcuts are fine inside one pipeline but change results when reused
+elsewhere, so rsemverse does not do them silently:
+
+- **Joining by position.** `cbind` or `paste` of columns assumes every file
+  lists genes in the same order. `rsem_read()` checks it.
+- **Reading only the files that exist.** A missing file then removes a
+  sample without warning. `rsem_read()` stops.
+- **Dropping IDs without a symbol.** Their expression is lost.
+  `rsem_read()` keeps them under their ID.
+- **Taking the maximum of duplicated symbols.** The value is then no longer
+  the abundance of the gene. `rsem_read()` sums.
+- **Log first, then sum.** `log2(1 + a) + log2(1 + b)` is not
+  `log2(1 + a + b)`. `rsem_read()` sums the original values.
+- **Rescaling TPM after removing genes.** The result is a share within the
+  kept genes, no longer TPM. rsemverse does not renormalize TPM.
+- **Z-scores over whatever samples are in the table.** Adding a sample
+  changes everyone's value. `rsem_fit_reference()` fixes the reference.
+- **Guessing groups from sample names.** Groups come from the sample table.
+
+## Steps left out
+
+- **PCA and sample correlation.** They are results, not table preparation;
+  [rsemflow](https://daikikumakura.github.io/rsemflow/) writes them as tables.
+- **Matching samples to a reference atlas (for example GTEx).** Profiles from
+  other studies and protocols differ for technical reasons, and no data set
+  was at hand to validate such matching.
+- **Combining species through orthologs.** One-to-many orthologs need
+  decisions that a general function should not make.

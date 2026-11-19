@@ -12,6 +12,11 @@
 #'   Robinson and Oshlack 2010), as `edgeR::calcNormFactors()` then
 #'   `edgeR::cpm()`. Also corrects for differences in RNA composition, for
 #'   example when a few genes take up a large part of one sample.
+#' * `"tmmwsp"`: CPM with TMMwsp factors ("TMM with singleton pairing"), as
+#'   `edgeR::calcNormFactors(method = "TMMwsp")`. A variant of TMM for data
+#'   with many zeros: genes that are zero in one of the two samples compared
+#'   are paired by size instead of discarded, and the reference sample is the
+#'   one with the largest sum of square-root counts.
 #' * `"upper_quartile"`: CPM with upper-quartile factors (Bullard et al.
 #'   2010), as `edgeR::calcNormFactors(method = "upperquartile")`.
 #' * `"deseq2"`: counts divided by the DESeq2 median-of-ratios size factors
@@ -31,13 +36,13 @@
 #' scale, pass the result to [rsem_transform()].
 #'
 #' @inheritParams rsem_filter
-#' @param method For counts: `"cpm"`, `"tmm"`, `"upper_quartile"`, `"deseq2"`
+#' @param method For counts: `"cpm"`, `"tmm"`, `"tmmwsp"`, `"upper_quartile"`, `"deseq2"`
 #'   or `"quantile"`. For TPM: `"quantile"`. Required.
 #'
 #' @return A data frame of normalized values in the same layout as `x`.
 #'   The per-sample factors are in the attribute `"factors"`: library size
 #'   for `"cpm"`, effective library size (library size times the
-#'   normalization factor) for `"tmm"` and `"upper_quartile"`, and size
+#'   normalization factor) for `"tmm"`, `"tmmwsp"` and `"upper_quartile"`, and size
 #'   factors for `"deseq2"`.
 #'
 #' @references
@@ -69,9 +74,9 @@ rsem_normalize <- function(x, expr, method) {
   if (missing(expr)) .stopf("`expr` must be \"count\" or \"tpm\".")
   expr <- .choice(expr, c("count", "tpm"), "expr")
   if (missing(method)) .stopf("`method` is required; see ?rsem_normalize.")
-  allowed <- if (expr == "count") c("cpm", "tmm", "upper_quartile", "deseq2", "quantile") else "quantile"
+  allowed <- if (expr == "count") c("cpm", "tmm", "tmmwsp", "upper_quartile", "deseq2", "quantile") else "quantile"
   if (is.character(method) && length(method) == 1L && !is.na(method) && expr == "tpm" &&
-      method %in% c("cpm", "tmm", "upper_quartile", "deseq2")) {
+      method %in% c("cpm", "tmm", "tmmwsp", "upper_quartile", "deseq2")) {
     .stopf("method = \"%s\" needs counts (expr = \"count\"); TPM already corrects for depth. For TPM, use \"quantile\".", method)
   }
   method <- .choice(method, allowed, "method")
@@ -88,8 +93,10 @@ rsem_normalize <- function(x, expr, method) {
       sweep(m, 2L, lib, "/") * 1e6
     },
     tmm = ,
+    tmmwsp = ,
     upper_quartile = {
-      nf <- if (method == "tmm") .tmm_factors(m, lib) else .upper_quartile_factors(m, lib)
+      nf <- switch(method, tmm = .tmm_factors(m, lib), tmmwsp = .tmmwsp_factors(m, lib),
+                   upper_quartile = .upper_quartile_factors(m, lib))
       factors <- lib * nf
       sweep(m, 2L, factors, "/") * 1e6
     },
@@ -106,7 +113,7 @@ rsem_normalize <- function(x, expr, method) {
     "rsem_normalize (%s, %s): %s genes x %d samples%s",
     method, expr, .fmt(nrow(m)), ncol(m),
     if (is.null(factors)) "" else paste0("; ", c(
-      cpm = "library sizes", tmm = "effective library sizes", upper_quartile = "effective library sizes",
+      cpm = "library sizes", tmm = "effective library sizes", tmmwsp = "effective library sizes", upper_quartile = "effective library sizes",
       deseq2 = "size factors"
     )[[method]], ": ", paste(sprintf("%s %s", names(factors), signif(factors, 4)), collapse = ", "))
   ))
@@ -151,6 +158,57 @@ rsem_normalize <- function(x, expr, method) {
   f <- sum(m_val[keep] / w_inv[keep], na.rm = TRUE) / sum(1 / w_inv[keep], na.rm = TRUE)
   if (is.na(f)) f <- 0
   2^f
+}
+
+# TMMwsp factors (edgeR::calcNormFactors(method = "TMMwsp"), edgeR 4.x):
+# the reference is the sample with the largest sum of square-root counts;
+# genes zero in both samples are dropped, and genes zero in only one sample
+# are paired by decreasing size instead of being dropped.
+.tmmwsp_factors <- function(m, lib) {
+  n <- ncol(m)
+  x <- m[rowSums(m > 0) > 0, , drop = FALSE]
+  if (!nrow(x) || n == 1L) return(rep(1, n))
+  ref <- which.max(colSums(sqrt(x)))
+  f <- vapply(seq_len(n), function(i) .tmmwsp_one(x[, i], x[, ref], lib[[i]], lib[[ref]]), numeric(1))
+  f / exp(mean(log(f)))
+}
+
+.tmmwsp_one <- function(obs, ref, n_obs, n_ref, logratio_trim = 0.3, sum_trim = 0.05) {
+  eps <- 1e-14
+  npos <- 2L * (obs > eps) + (ref > eps)
+  drop <- npos == 0L
+  obs <- obs[!drop]; ref <- ref[!drop]; npos <- npos[!drop]
+  zero_obs <- npos == 1L
+  zero_ref <- npos == 2L
+  k <- zero_obs | zero_ref
+  singles <- min(sum(zero_obs), sum(zero_ref))
+  if (singles > 0L) {
+    obs <- c(obs[!k], sort(obs[k], decreasing = TRUE)[seq_len(singles)])
+    ref <- c(ref[!k], sort(ref[k], decreasing = TRUE)[seq_len(singles)])
+  } else {
+    obs <- obs[!k]; ref <- ref[!k]
+  }
+  g <- length(obs)
+  if (!g) return(1)
+  p_obs <- obs / n_obs
+  p_ref <- ref / n_ref
+  m_val <- log2(p_obs / p_ref)
+  a_val <- 0.5 * log2(p_obs * p_ref)
+  if (max(abs(m_val)) < 1e-6) return(1)
+  m_shrunk <- log2(((obs + 0.5) / (n_obs + 0.5)) / ((ref + 0.5) / (n_ref + 0.5)))
+  o_m <- order(m_val, m_shrunk)
+  o_a <- order(a_val)
+  lo_m <- as.integer(g * logratio_trim) + 1L
+  lo_a <- as.integer(g * sum_trim) + 1L
+  keep_m <- keep_a <- rep_len(FALSE, g)
+  keep_m[o_m[lo_m:(g + 1L - lo_m)]] <- TRUE
+  keep_a[o_a[lo_a:(g + 1L - lo_a)]] <- TRUE
+  keep <- keep_m & keep_a
+  p_obs <- p_obs[keep]
+  p_ref <- p_ref[keep]
+  v <- (1 - p_obs) / p_obs / n_obs + (1 - p_ref) / p_ref / n_ref
+  w <- (1 + 1e-6) / (v + 1e-6)
+  2^(sum(w * m_val[keep]) / sum(w))
 }
 
 # Upper-quartile factors: the 75th percentile of the counts of genes that are

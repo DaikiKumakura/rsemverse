@@ -4,7 +4,14 @@
 \alias{rsem_subset}
 \title{Keep or remove groups of genes}
 \usage{
-rsem_subset(x, species, keep = NULL, remove = NULL)
+rsem_subset(
+  x,
+  species,
+  keep = NULL,
+  remove = NULL,
+  annotation = NULL,
+  ids = attr(x, "gene_ids", exact = TRUE)
+)
 }
 \arguments{
 \item{x}{The gene by sample table, as returned by \code{\link[=rsem_read]{rsem_read()}}: gene
@@ -14,8 +21,16 @@ sample.}
 \item{species}{\code{"human"} or \code{"mouse"}. Required.}
 
 \item{keep, remove}{Gene groups: one or more of \code{"protein_coding"},
-\code{"mito"}, \code{"ribo"}, \code{"hb"}, \code{"sex"} and \code{"ercc"}. At least one of the
-two is required.}
+\code{"mito"}, \code{"ribo"}, \code{"hb"}, \code{"sex"}, \code{"ercc"} and, with \code{annotation},
+\code{"rrna"}, \code{"mito_rrna"}, \code{"mito_trna"}, \code{"snorna"}, \code{"snrna"},
+\code{"mirna"} and \code{"lncrna"}. At least one of the two is required.}
+
+\item{annotation}{For the GTF groups: a GTF file or data frame, as in
+\code{\link[=rsem_biotype_profile]{rsem_biotype_profile()}}. \code{species} is then needed only for the other
+groups.}
+
+\item{ids}{For the GTF groups: the attribute \code{"gene_ids"} of the table
+\code{\link[=rsem_read]{rsem_read()}} returned, as in \code{\link[=rsem_biotype_profile]{rsem_biotype_profile()}}.}
 }
 \value{
 A data frame with the selected genes, in the same layout and order
@@ -55,6 +70,21 @@ and are often removed when sex is not of interest. Pseudoautosomal genes
 (on both X and Y, expressed in both sexes) are not included.
 \item \code{"ercc"}: ERCC spike-in controls (IDs starting with \verb{ERCC-}).
 }
+
+\code{"ribo"} means ribosomal \strong{protein} genes, not ribosomal RNA. The groups
+below need the gene types of a GTF file (\code{annotation}), because the OrgDb
+does not separate them; rRNA genes, for example, are absent from the OrgDb
+gene types used above:
+\itemize{
+\item \code{"rrna"}: cytosolic rRNA genes (\code{rRNA}, \code{rRNA_pseudogene}).
+\item \code{"mito_rrna"}, \code{"mito_trna"}: mitochondrial rRNA (\code{Mt_rRNA}) and tRNA
+(\code{Mt_tRNA}) genes.
+\item \code{"snorna"}, \code{"snrna"}, \code{"mirna"}: \code{snoRNA}, \code{snRNA}, \code{miRNA}.
+\item \code{"lncrna"}: \code{lncRNA} (\code{lincRNA} in older annotations).
+}
+
+If the annotation has no gene of a requested type, the function stops:
+removing nothing would look like there was nothing to remove.
 
 \code{keep} is applied first (a gene is kept when it is in any of the listed
 groups), then \code{remove}. Genes are matched by symbol; rows that kept their

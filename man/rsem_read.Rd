@@ -2,29 +2,48 @@
 % Please edit documentation in R/rsem_read.R
 \name{rsem_read}
 \alias{rsem_read}
-\title{Read RSEM gene-level results as a gene symbol by sample table}
+\title{Read RSEM results as a gene (or transcript) by sample table}
 \usage{
-rsem_read(data = "data", metadata = "metadata.csv", species, expr)
+rsem_read(
+  data = "data",
+  metadata = "metadata.csv",
+  species,
+  expr,
+  level = "gene",
+  id = "symbol",
+  sample_from = "filename"
+)
 }
 \arguments{
 \item{data}{Directory that contains the RSEM files.}
 
-\item{metadata}{Path to the metadata CSV.}
+\item{metadata}{Path to the metadata CSV, or \code{NULL} to find the files in
+\code{data} (see Input).}
 
 \item{species}{\code{"human"} or \code{"mouse"}. Required. The function stops if the
 gene IDs are of the other species.}
 
-\item{expr}{\code{"count"} (\code{expected_count}) or \code{"tpm"} (\code{TPM}). Required.}
+\item{expr}{\code{"count"} (\code{expected_count}), \code{"tpm"} (\code{TPM}), \code{"length"}
+(\code{effective_length}) or, for transcripts, \code{"isopct"} (\code{IsoPct}).
+Required.}
+
+\item{level}{\code{"gene"} (\verb{*.genes.results}, the default) or \code{"isoform"}
+(\verb{*.isoforms.results}).}
+
+\item{id}{\code{"symbol"} (the default) or \code{"original"} (the IDs of the file).}
+
+\item{sample_from}{With \code{metadata = NULL}: \code{"filename"} (the default) or
+\code{"parent_dir"}.}
 }
 \value{
-A data frame with one row per gene symbol (as row names) and one
-column per sample, in the order of the metadata. A message reports how
-many genes received a symbol.
+A data frame with one row per gene symbol (or gene ID, or
+transcript; as row names) and one column per sample, in the order of the
+metadata. A message reports how many genes received a symbol.
 }
 \description{
-Reads the \verb{*.genes.results} files listed in a metadata CSV and returns one
-expression value per gene symbol and sample, either the RSEM expected count
-or the TPM.
+Reads RSEM \verb{*.genes.results} (or \verb{*.isoforms.results}) files and returns
+one value per gene symbol and sample: the expected count, the TPM, the
+effective length or, for transcripts, the isoform percentage.
 }
 \section{Input}{
 
@@ -37,29 +56,77 @@ S1,S1.genes.results
 S2,S2.genes.results
 }\if{html}{\out{</div>}}
 
-Every file needs the columns \code{gene_id} and \code{expected_count} or \code{TPM}
-(whichever \code{expr} selects); other columns are ignored. All files must
-contain the same genes in the same order, without duplicates.
+With \code{metadata = NULL} the files are found instead: every
+\verb{*.genes.results} (or \verb{*.isoforms.results}) file under \code{data}, searched
+recursively. The sample ID is the file name without the suffix
+(\code{sample_from = "filename"}) or the name of the folder that holds the file
+(\code{sample_from = "parent_dir"}, for layouts such as \code{S1/rsem.genes.results}).
+The files and the sample IDs found are printed, sorted by sample ID, and
+duplicated sample IDs stop the function rather than overwrite each other.
+Groups are never guessed from file names; give them in the sample table of
+\code{\link[=rsem_long]{rsem_long()}} or \code{\link[=rsem_fit_reference]{rsem_fit_reference()}}.
+
+Every file needs the column \code{gene_id} (\code{transcript_id} for transcripts) and
+the column \code{expr} selects; other columns are ignored. All files must
+contain the same rows in the same order, without duplicates. A listed file
+that is missing stops the function; no sample is dropped silently.
 }
 
 \section{Gene symbols}{
 
-Symbols come from \code{org.Hs.eg.db} (human) or \code{org.Mm.eg.db} (mouse). The
-version suffix of an Ensembl gene ID (\code{ENSG00000141510.18}) is removed
-before the lookup, because the OrgDb keys have no version. The rules are:
+With \code{id = "symbol"} (the default), symbols come from \code{org.Hs.eg.db}
+(human) or \code{org.Mm.eg.db} (mouse). The version suffix of an Ensembl gene ID
+(\code{ENSG00000141510.18}) is removed before the lookup, because the OrgDb
+keys have no version. The rules are:
 \itemize{
 \item An Ensembl ID with several symbols gets the symbol of its lowest Entrez
 ID.
 \item Rows that end up with the same symbol are \strong{summed} (counts and TPM are
-both additive).
+both additive), never reduced to their maximum. Effective lengths are not
+additive: they are averaged with the TPM of each row as weight, the way
+RSEM averages the lengths of a gene's transcripts (a plain mean where the
+rows have no TPM in that sample).
 \item A gene without a symbol (not in the OrgDb, or not an Ensembl ID, such as
 a spike-in or an ID ending in \verb{_PAR_Y}) keeps its \code{gene_id} from the
 file, so no expression is lost. If such an ID equals a gene symbol, the
 function stops instead of merging the two.
 }
 
+The original IDs behind every row are kept in the attribute \code{"gene_ids"}
+(a data frame with the columns \code{gene} and \code{gene_id}); \code{\link[=rsem_write]{rsem_write()}} can
+write them next to the values. Summing happens on the original scale,
+before any log transformation: \code{log2(1 + TPM_a + TPM_b)} is not the sum of
+\code{log2(1 + TPM_a)} and \code{log2(1 + TPM_b)}.
+
+With \code{id = "original"}, rows keep the \code{gene_id} of the file and no OrgDb is
+needed.
+
 Rows appear in the order in which they first occur in the files. Values are
 not rounded and TPM is not renormalized.
+}
+
+\section{Effective length}{
+
+\code{expr = "length"} reads \code{effective_length}. RSEM sets it to 0 for a
+transcript shorter than the mean fragment length, and the gene-level value
+is an average over transcripts weighted by their abundance, so a gene can
+have length 0 in some samples and a positive length in others.
+\code{tximport} and \code{DESeq2::DESeqDataSetFromTximport()} stop on such zeros. The
+function reports how many genes have a zero length and keeps them as 0
+(attribute \code{"zero_length"}: the number of zero genes per sample). Common
+choices are to remove those genes or to import the transcript-level
+results; replacing 0 by 1 changes the length offset of those genes. See
+\code{\link[=rsem_length_profile]{rsem_length_profile()}}.
+}
+
+\section{Transcripts}{
+
+With \code{level = "isoform"}, the \verb{*.isoforms.results} files are read; rows are
+transcript IDs as in the file and are never merged. \code{expr} can also be
+\code{"isopct"} (the transcript's share of its gene's abundance, in percent).
+The attribute \code{"tx2gene"} holds the transcript-to-gene table
+(\code{transcript_id}, \code{gene_id}, and \code{gene}: the symbol with \code{id = "symbol"},
+else the \code{gene_id}), which \code{\link[=rsem_select_isoforms]{rsem_select_isoforms()}} uses.
 }
 
 \examples{
@@ -72,5 +139,8 @@ if (requireNamespace("org.Hs.eg.db", quietly = TRUE)) {
     expr = "tpm"
   )
   head(tpm)
+  # find the files instead of listing them
+  tpm2 <- rsem_read(file.path(ex, "data"), metadata = NULL,
+                    species = "human", expr = "tpm")
 }
 }

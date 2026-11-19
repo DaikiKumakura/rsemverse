@@ -1,3 +1,61 @@
+# rsemverse 0.3.0
+
+Steps that scripts starting from RSEM output often write by hand, done with
+the checks those scripts tend to skip. Existing calls give the same results
+as in 0.2.0.
+
+## Reading
+
+* `rsem_read(metadata = NULL)` finds the `*.genes.results` files under a
+  folder and names samples by file name or, with `sample_from =
+  "parent_dir"`, by folder. It prints the files found and stops on duplicated
+  sample IDs.
+* `rsem_read(expr = "length")` reads effective lengths and reports genes with
+  length 0, the values that stop `tximport`/`DESeqDataSetFromTximport()`.
+  Rows merged into one symbol get the TPM-weighted mean length.
+* `rsem_read(level = "isoform")` reads `*.isoforms.results` (TPM, counts,
+  lengths or `IsoPct`), with the transcript-to-gene table in
+  `attr(x, "tx2gene")`.
+* `rsem_read(id = "original")` keeps the IDs of the files and needs no OrgDb.
+* The original IDs behind each row are kept in `attr(x, "gene_ids")`.
+
+## New functions
+
+* `rsem_detection_curve()`: genes kept for each detection threshold and
+  sample requirement, equal to what `rsem_filter(method = "detected")` keeps.
+* `rsem_fit_reference()`, `rsem_apply_reference()`, `rsem_reference_scale()`:
+  per-gene z-scores against a fixed reference group, fitted once and applied
+  to any samples. Genes with no variation in the reference give `NA` or are
+  removed, never smoothed.
+* `rsem_biotype_profile()`: share of each GTF gene type per sample, with `NA`
+  for types the annotation does not contain.
+* `rsem_write()`: TSV (or `.tsv.gz`) with the original gene IDs and GTF gene
+  types next to the values.
+* `rsem_select_isoforms()`: the transcript selection rules of Trinity's
+  `filter_low_expr_transcripts.pl`, with an explicit rule for combining
+  samples.
+* `rsem_length_profile()`: variation of each gene's effective length across
+  samples and the share of samples with length 0.
+
+## Changed functions
+
+* `rsem_subset()` takes a GTF file (`annotation`) for the groups `"rrna"`,
+  `"mito_rrna"`, `"mito_trna"`, `"snorna"`, `"snrna"`, `"mirna"` and
+  `"lncrna"`, and stops when the annotation has no gene of a requested type.
+  Rows are matched to the GTF through the original gene IDs that
+  `rsem_read()` keeps, so genes whose OrgDb symbol differs from the GTF gene
+  name are not lost. The documentation now says that `"ribo"` means
+  ribosomal protein genes.
+* `rsem_normalize(method = "tmmwsp")`: TMMwsp factors, equal to
+  `edgeR::calcNormFactors(method = "TMMwsp")` (edgeR 4.8.2) in the tests.
+
+## Documentation
+
+* Two articles: a workflow from RSEM files to z-scores against controls, and
+  a table of hand-written RSEM steps with their rsemverse equivalents.
+* `validation/encode-k562-0.3.R` checks the new functions on the six ENCODE
+  K562 experiments, their transcript files and the GENCODE V29 annotation.
+
 # rsemverse 0.2.0
 
 New functions that take the table from `rsem_read()` and return a table of

@@ -1,0 +1,48 @@
+#' Write the table with gene IDs and annotation
+#'
+#' Writes the gene by sample table as a tab-separated file, with the gene in
+#' the first column, optionally followed by the original gene IDs behind each
+#' row and the gene type from a GTF file, then one column per sample. A file
+#' name ending in `.gz` is compressed. The file is for sharing and for other
+#' tools; to continue in R, keep using the table itself.
+#'
+#' @param x The gene by sample table.
+#' @param file Output path (`.tsv` or `.tsv.gz`).
+#' @param ids The attribute `"gene_ids"` of the table [rsem_read()] returned,
+#'   `attr(tpm, "gene_ids")`: adds the column `gene_id` with the original IDs
+#'   of each row, joined by `";"` where several IDs were summed into one
+#'   symbol. The other functions return new tables without this attribute, so
+#'   take it from the table [rsem_read()] gave. By default the attribute of
+#'   `x` is used when it is there.
+#' @param annotation Optional GTF file or data frame, as in
+#'   [rsem_biotype_profile()]: adds the column `gene_type`.
+#'
+#' @return `file`, invisibly.
+#'
+#' @examples
+#' x <- data.frame(S1 = c(1.5, 2), S2 = c(3, 4), row.names = c("TP53", "GAPDH"))
+#' f <- tempfile(fileext = ".tsv")
+#' rsem_write(x, f)
+#' readLines(f)
+#' @export
+rsem_write <- function(x, file, ids = attr(x, "gene_ids", exact = TRUE), annotation = NULL) {
+  if (!is.character(file) || length(file) != 1L || is.na(file) || !nzchar(file)) .stopf("`file` must be a file path.")
+  m <- .expr_matrix(x, nonnegative = FALSE)
+  out <- data.frame(gene = rownames(m), stringsAsFactors = FALSE)
+  if (!is.null(ids)) {
+    if (!is.data.frame(ids) || !all(c("gene", "gene_id") %in% names(ids))) {
+      .stopf("`ids` must be the attribute \"gene_ids\" of a table from rsem_read() (columns gene and gene_id).")
+    }
+    joined <- tapply(ids$gene_id, ids$gene, paste, collapse = ";")
+    out$gene_id <- unname(joined[out$gene])
+    if (anyNA(out$gene_id)) .stopf("`ids` does not cover %s row(s) of `x`; it belongs to another table.", .fmt(sum(is.na(out$gene_id))))
+  }
+  if (!is.null(annotation)) out$gene_type <- .annotate_rows(out$gene, .read_annotation(annotation), ids)
+  out <- cbind(out, as.data.frame(m, check.names = FALSE), stringsAsFactors = FALSE)
+  data.table::fwrite(out, file, sep = "\t", quote = FALSE, na = "NA", compress = if (grepl("\\.gz$", file)) "gzip" else "none")
+  message(sprintf(
+    "rsem_write: %s genes x %d samples to %s (columns: %s)",
+    .fmt(nrow(m)), ncol(m), file, paste(c(setdiff(names(out), colnames(m)), "samples"), collapse = ", ")
+  ))
+  invisible(file)
+}

@@ -71,3 +71,12 @@
   }
   x
 }
+
+# Number of samples a gene must pass: a value below 1 is a proportion of the
+# samples (at least one sample), otherwise a count.
+.needed_samples <- function(min_samples, n, name = "min_samples") {
+  min_samples <- .number(min_samples, name, lower = 0)
+  needed <- if (min_samples < 1) max(1, ceiling(min_samples * n - 1e-9)) else min_samples
+  if (needed > n) .stopf("`%s` (%s) is larger than the number of samples (%d).", name, format(min_samples), n)
+  needed
+}

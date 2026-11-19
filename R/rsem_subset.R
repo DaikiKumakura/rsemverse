@@ -31,6 +31,20 @@
 #'   (on both X and Y, expressed in both sexes) are not included.
 #' * `"ercc"`: ERCC spike-in controls (IDs starting with `ERCC-`).
 #'
+#' `"ribo"` means ribosomal **protein** genes, not ribosomal RNA. The groups
+#' below need the gene types of a GTF file (`annotation`), because the OrgDb
+#' does not separate them; rRNA genes, for example, are absent from the OrgDb
+#' gene types used above:
+#'
+#' * `"rrna"`: cytosolic rRNA genes (`rRNA`, `rRNA_pseudogene`).
+#' * `"mito_rrna"`, `"mito_trna"`: mitochondrial rRNA (`Mt_rRNA`) and tRNA
+#'   (`Mt_tRNA`) genes.
+#' * `"snorna"`, `"snrna"`, `"mirna"`: `snoRNA`, `snRNA`, `miRNA`.
+#' * `"lncrna"`: `lncRNA` (`lincRNA` in older annotations).
+#'
+#' If the annotation has no gene of a requested type, the function stops:
+#' removing nothing would look like there was nothing to remove.
+#'
 #' `keep` is applied first (a gene is kept when it is in any of the listed
 #' groups), then `remove`. Genes are matched by symbol; rows that kept their
 #' Ensembl ID in [rsem_read()] are matched by that ID. Genes that the
@@ -41,8 +55,14 @@
 #' @inheritParams rsem_filter
 #' @param species `"human"` or `"mouse"`. Required.
 #' @param keep,remove Gene groups: one or more of `"protein_coding"`,
-#'   `"mito"`, `"ribo"`, `"hb"`, `"sex"` and `"ercc"`. At least one of the
-#'   two is required.
+#'   `"mito"`, `"ribo"`, `"hb"`, `"sex"`, `"ercc"` and, with `annotation`,
+#'   `"rrna"`, `"mito_rrna"`, `"mito_trna"`, `"snorna"`, `"snrna"`,
+#'   `"mirna"` and `"lncrna"`. At least one of the two is required.
+#' @param annotation For the GTF groups: a GTF file or data frame, as in
+#'   [rsem_biotype_profile()]. `species` is then needed only for the other
+#'   groups.
+#' @param ids For the GTF groups: the attribute `"gene_ids"` of the table
+#'   [rsem_read()] returned, as in [rsem_biotype_profile()].
 #'
 #' @return A data frame with the selected genes, in the same layout and order
 #'   as `x`.
@@ -56,10 +76,9 @@
 #'   rsem_subset(tpm, "human", keep = "protein_coding", remove = c("mito", "ribo"))
 #' }
 #' @export
-rsem_subset <- function(x, species, keep = NULL, remove = NULL) {
-  if (missing(species)) .stopf("`species` must be \"human\" or \"mouse\".")
-  species <- .choice(species, c("human", "mouse"), "species")
-  groups <- c("protein_coding", "mito", "ribo", "hb", "sex", "ercc")
+rsem_subset <- function(x, species, keep = NULL, remove = NULL, annotation = NULL,
+                        ids = attr(x, "gene_ids", exact = TRUE)) {
+  groups <- c("protein_coding", "mito", "ribo", "hb", "sex", "ercc", names(.gtf_groups))
   check <- function(g, name) {
     if (is.null(g)) return(character(0))
     if (!is.character(g) || !length(g) || anyNA(g) || !all(g %in% groups)) {
@@ -70,10 +89,32 @@ rsem_subset <- function(x, species, keep = NULL, remove = NULL) {
   keep <- check(keep, "keep")
   remove <- check(remove, "remove")
   if (!length(keep) && !length(remove)) .stopf("Give at least one gene group in `keep` or `remove`.")
+  wanted <- union(keep, remove)
+  gtf <- intersect(wanted, names(.gtf_groups))
+  orgdb_groups <- setdiff(wanted, names(.gtf_groups))
+  if (length(orgdb_groups)) {
+    if (missing(species)) .stopf("`species` must be \"human\" or \"mouse\".")
+    species <- .choice(species, c("human", "mouse"), "species")
+  }
+  if (length(gtf) && is.null(annotation)) {
+    .stopf("The group(s) %s need the gene types of a GTF file: give `annotation`.", paste(gtf, collapse = ", "))
+  }
   m <- .expr_matrix(x, nonnegative = FALSE)
 
-  member <- .gene_groups(rownames(m), species, union(keep, remove))
-  report <- vapply(union(keep, remove), function(g) sprintf("%s %s", g, .fmt(sum(member[, g]))), character(1))
+  member <- matrix(FALSE, nrow(m), length(wanted), dimnames = list(rownames(m), wanted))
+  if (length(orgdb_groups)) member[, orgdb_groups] <- .gene_groups(rownames(m), species, orgdb_groups)
+  if (length(gtf)) {
+    ann <- .read_annotation(annotation)
+    type <- .annotate_rows(rownames(m), ann, ids)
+    for (g in gtf) {
+      if (!any(ann$gene_type %in% .gtf_groups[[g]])) {
+        .stopf("The annotation has no gene of type %s, so \"%s\" cannot be evaluated.", paste(.gtf_groups[[g]], collapse = "/"), g)
+      }
+      member[, g] <- vapply(strsplit(ifelse(is.na(type), "", type), ";", fixed = TRUE),
+                            function(t) any(t %in% .gtf_groups[[g]]), logical(1))
+    }
+  }
+  report <- vapply(wanted, function(g) sprintf("%s %s", g, .fmt(sum(member[, g]))), character(1))
 
   selected <- if (length(keep)) rowSums(member[, keep, drop = FALSE]) > 0 else rep(TRUE, nrow(m))
   if (length(remove)) selected <- selected & rowSums(member[, remove, drop = FALSE]) == 0

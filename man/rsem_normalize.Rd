@@ -13,14 +13,14 @@ sample.}
 
 \item{expr}{\code{"count"} or \code{"tpm"}: what the values are. Required.}
 
-\item{method}{For counts: \code{"cpm"}, \code{"tmm"}, \code{"upper_quartile"}, \code{"deseq2"}
+\item{method}{For counts: \code{"cpm"}, \code{"tmm"}, \code{"tmmwsp"}, \code{"upper_quartile"}, \code{"deseq2"}
 or \code{"quantile"}. For TPM: \code{"quantile"}. Required.}
 }
 \value{
 A data frame of normalized values in the same layout as \code{x}.
 The per-sample factors are in the attribute \code{"factors"}: library size
 for \code{"cpm"}, effective library size (library size times the
-normalization factor) for \code{"tmm"} and \code{"upper_quartile"}, and size
+normalization factor) for \code{"tmm"}, \code{"tmmwsp"} and \code{"upper_quartile"}, and size
 factors for \code{"deseq2"}.
 }
 \description{
@@ -38,6 +38,11 @@ depth only.
 Robinson and Oshlack 2010), as \code{edgeR::calcNormFactors()} then
 \code{edgeR::cpm()}. Also corrects for differences in RNA composition, for
 example when a few genes take up a large part of one sample.
+\item \code{"tmmwsp"}: CPM with TMMwsp factors ("TMM with singleton pairing"), as
+\code{edgeR::calcNormFactors(method = "TMMwsp")}. A variant of TMM for data
+with many zeros: genes that are zero in one of the two samples compared
+are paired by size instead of discarded, and the reference sample is the
+one with the largest sum of square-root counts.
 \item \code{"upper_quartile"}: CPM with upper-quartile factors (Bullard et al.
 2010), as \code{edgeR::calcNormFactors(method = "upperquartile")}.
 \item \code{"deseq2"}: counts divided by the DESeq2 median-of-ratios size factors

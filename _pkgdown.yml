@@ -12,7 +12,7 @@ home:
 
 navbar:
   structure:
-    left: [reference, news]
+    left: [reference, articles, news]
     right: [search, github]
 
 reference:
@@ -21,13 +21,15 @@ reference:
     contents:
       - rsem_read
   - title: "Step 2: Filter"
-    desc: "Remove lowly expressed genes, or keep the most variable ones."
+    desc: "See what each threshold keeps, then remove lowly expressed genes or keep the most variable ones."
     contents:
+      - rsem_detection_curve
       - rsem_filter
   - title: "Step 3: Select genes"
-    desc: "Keep or remove gene groups taken from the OrgDb; no gene list needed."
+    desc: "Keep or remove gene groups from the OrgDb or a GTF file; see their share per sample."
     contents:
       - rsem_subset
+      - rsem_biotype_profile
   - title: "Step 4: Normalize"
     desc: "Make samples comparable: CPM, TMM, upper quartile, DESeq2, quantile."
     contents:
@@ -36,10 +38,23 @@ reference:
     desc: "log2, z-score, centering and ranks for plots, clustering and scores."
     contents:
       - rsem_transform
-  - title: "Step 6: Long table"
-    desc: "One row per gene and sample, with the sample table, for ggplot2."
+      - rsem_fit_reference
+  - title: "Step 6: Long table and files"
+    desc: "One row per gene and sample, with the sample table, for ggplot2; or a TSV with gene IDs and types."
     contents:
       - rsem_long
+      - rsem_write
+  - title: "Transcripts and effective lengths"
+    contents:
+      - rsem_select_isoforms
+      - rsem_length_profile
   - title: Package
     contents:
       - rsemverse-package
+
+articles:
+  - title: Articles
+    navbar: ~
+    contents:
+      - articles/workflow
+      - articles/from-scripts

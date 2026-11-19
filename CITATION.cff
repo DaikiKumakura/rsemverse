@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
-title: "rsemverse: From RSEM Gene Results to Analysis-Ready Gene Tables"
+title: "rsemverse: From RSEM Results to Analysis-Ready Gene Tables"
 authors:
   - family-names: Kumakura
     given-names: Daiki
     orcid: "https://orcid.org/0000-0001-9859-0720"
-version: "0.2.0"
-date-released: "2026-11-14"
+version: "0.3.0"
+date-released: "2026-11-19"
 identifiers:
   - type: doi
     value: "10.5281/zenodo.24210460"
@@ -16,7 +16,7 @@ repository-code: "https://github.com/DaikiKumakura/rsemverse"
 url: "https://daikikumakura.github.io/software/rsemverse.html"
 license: MIT
 abstract: >-
-  An R package that turns RSEM *.genes.results files into analysis-ready gene tables for human and mouse bulk RNA-seq. It reads the files into a gene symbol by sample table of expected counts or TPM, then filters genes (edgeR filterByExpr rule, detection thresholds, most variable genes), keeps or removes built-in gene groups from the OrgDb, normalizes between samples (CPM, TMM, upper quartile, DESeq2 median of ratios, quantile), transforms values (log2, z-score, ranks) and returns a long table with the sample information.
+  An R package that turns RSEM *.genes.results and *.isoforms.results files into analysis-ready gene tables for human and mouse bulk RNA-seq. It reads the files, listed in a sample table or found in a folder, into a gene symbol by sample table of expected counts, TPM or effective lengths, then counts and filters genes by detection thresholds (or the edgeR filterByExpr rule, or most variable genes), keeps or removes gene groups from the OrgDb or a GTF file, normalizes between samples (CPM, TMM, TMMwsp, upper quartile, DESeq2 median of ratios, quantile), transforms values (log2, z-score, ranks, z-scores against a fixed reference group), selects transcripts by expression, and returns a long table with the sample information or a file with gene IDs and types.
 keywords:
   - "RNA-seq"
   - "RSEM"

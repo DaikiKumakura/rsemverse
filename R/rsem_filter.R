@@ -86,9 +86,7 @@ rsem_filter <- function(x, expr, method = NULL, min_value = NULL, min_samples = 
     rule <- sprintf("CPM >= %s in >= %s of %d samples and total count >= 15", signif(cutoff, 3), format(k), n)
   } else if (method == "detected") {
     threshold <- if (is.null(min_value)) c(count = 10, tpm = 1)[[expr]] else .number(min_value, "min_value", lower = 0)
-    min_samples <- .number(min_samples, "min_samples", lower = 0)
-    needed <- if (min_samples < 1) max(1, ceiling(min_samples * n - 1e-9)) else min_samples
-    if (needed > n) .stopf("`min_samples` (%s) is larger than the number of samples (%d).", format(min_samples), n)
+    needed <- .needed_samples(min_samples, n)
     keep <- rowSums(m >= threshold) >= needed
     rule <- sprintf("%s >= %s in >= %s of %d samples", if (expr == "tpm") "TPM" else "count", format(threshold), format(needed), n)
   } else if (method == "nonzero") {

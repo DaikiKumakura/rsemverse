@@ -12,3 +12,4 @@
 ^docs$
 ^pkgdown$
 ^CITATION\.cff$
+^vignettes/articles$

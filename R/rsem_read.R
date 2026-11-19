@@ -1,8 +1,8 @@
-#' Read RSEM gene-level results as a gene symbol by sample table
+#' Read RSEM results as a gene (or transcript) by sample table
 #'
-#' Reads the `*.genes.results` files listed in a metadata CSV and returns one
-#' expression value per gene symbol and sample, either the RSEM expected count
-#' or the TPM.
+#' Reads RSEM `*.genes.results` (or `*.isoforms.results`) files and returns
+#' one value per gene symbol and sample: the expected count, the TPM, the
+#' effective length or, for transcripts, the isoform percentage.
 #'
 #' @section Input:
 #' `metadata` is a CSV with the columns `sample_id` and `ref`; other columns
@@ -15,36 +15,88 @@
 #' S2,S2.genes.results
 #' ```
 #'
-#' Every file needs the columns `gene_id` and `expected_count` or `TPM`
-#' (whichever `expr` selects); other columns are ignored. All files must
-#' contain the same genes in the same order, without duplicates.
+#' With `metadata = NULL` the files are found instead: every
+#' `*.genes.results` (or `*.isoforms.results`) file under `data`, searched
+#' recursively. The sample ID is the file name without the suffix
+#' (`sample_from = "filename"`) or the name of the folder that holds the file
+#' (`sample_from = "parent_dir"`, for layouts such as `S1/rsem.genes.results`).
+#' The files and the sample IDs found are printed, sorted by sample ID, and
+#' duplicated sample IDs stop the function rather than overwrite each other.
+#' Groups are never guessed from file names; give them in the sample table of
+#' [rsem_long()] or [rsem_fit_reference()].
+#'
+#' Every file needs the column `gene_id` (`transcript_id` for transcripts) and
+#' the column `expr` selects; other columns are ignored. All files must
+#' contain the same rows in the same order, without duplicates. A listed file
+#' that is missing stops the function; no sample is dropped silently.
 #'
 #' @section Gene symbols:
-#' Symbols come from `org.Hs.eg.db` (human) or `org.Mm.eg.db` (mouse). The
-#' version suffix of an Ensembl gene ID (`ENSG00000141510.18`) is removed
-#' before the lookup, because the OrgDb keys have no version. The rules are:
+#' With `id = "symbol"` (the default), symbols come from `org.Hs.eg.db`
+#' (human) or `org.Mm.eg.db` (mouse). The version suffix of an Ensembl gene ID
+#' (`ENSG00000141510.18`) is removed before the lookup, because the OrgDb
+#' keys have no version. The rules are:
 #'
 #' * An Ensembl ID with several symbols gets the symbol of its lowest Entrez
 #'   ID.
 #' * Rows that end up with the same symbol are **summed** (counts and TPM are
-#'   both additive).
+#'   both additive), never reduced to their maximum. Effective lengths are not
+#'   additive: they are averaged with the TPM of each row as weight, the way
+#'   RSEM averages the lengths of a gene's transcripts (a plain mean where the
+#'   rows have no TPM in that sample).
 #' * A gene without a symbol (not in the OrgDb, or not an Ensembl ID, such as
 #'   a spike-in or an ID ending in `_PAR_Y`) keeps its `gene_id` from the
 #'   file, so no expression is lost. If such an ID equals a gene symbol, the
 #'   function stops instead of merging the two.
 #'
+#' The original IDs behind every row are kept in the attribute `"gene_ids"`
+#' (a data frame with the columns `gene` and `gene_id`); [rsem_write()] can
+#' write them next to the values. Summing happens on the original scale,
+#' before any log transformation: `log2(1 + TPM_a + TPM_b)` is not the sum of
+#' `log2(1 + TPM_a)` and `log2(1 + TPM_b)`.
+#'
+#' With `id = "original"`, rows keep the `gene_id` of the file and no OrgDb is
+#' needed.
+#'
 #' Rows appear in the order in which they first occur in the files. Values are
 #' not rounded and TPM is not renormalized.
 #'
+#' @section Effective length:
+#' `expr = "length"` reads `effective_length`. RSEM sets it to 0 for a
+#' transcript shorter than the mean fragment length, and the gene-level value
+#' is an average over transcripts weighted by their abundance, so a gene can
+#' have length 0 in some samples and a positive length in others.
+#' `tximport` and `DESeq2::DESeqDataSetFromTximport()` stop on such zeros. The
+#' function reports how many genes have a zero length and keeps them as 0
+#' (attribute `"zero_length"`: the number of zero genes per sample). Common
+#' choices are to remove those genes or to import the transcript-level
+#' results; replacing 0 by 1 changes the length offset of those genes. See
+#' [rsem_length_profile()].
+#'
+#' @section Transcripts:
+#' With `level = "isoform"`, the `*.isoforms.results` files are read; rows are
+#' transcript IDs as in the file and are never merged. `expr` can also be
+#' `"isopct"` (the transcript's share of its gene's abundance, in percent).
+#' The attribute `"tx2gene"` holds the transcript-to-gene table
+#' (`transcript_id`, `gene_id`, and `gene`: the symbol with `id = "symbol"`,
+#' else the `gene_id`), which [rsem_select_isoforms()] uses.
+#'
 #' @param data Directory that contains the RSEM files.
-#' @param metadata Path to the metadata CSV.
+#' @param metadata Path to the metadata CSV, or `NULL` to find the files in
+#'   `data` (see Input).
 #' @param species `"human"` or `"mouse"`. Required. The function stops if the
 #'   gene IDs are of the other species.
-#' @param expr `"count"` (`expected_count`) or `"tpm"` (`TPM`). Required.
+#' @param expr `"count"` (`expected_count`), `"tpm"` (`TPM`), `"length"`
+#'   (`effective_length`) or, for transcripts, `"isopct"` (`IsoPct`).
+#'   Required.
+#' @param level `"gene"` (`*.genes.results`, the default) or `"isoform"`
+#'   (`*.isoforms.results`).
+#' @param id `"symbol"` (the default) or `"original"` (the IDs of the file).
+#' @param sample_from With `metadata = NULL`: `"filename"` (the default) or
+#'   `"parent_dir"`.
 #'
-#' @return A data frame with one row per gene symbol (as row names) and one
-#'   column per sample, in the order of the metadata. A message reports how
-#'   many genes received a symbol.
+#' @return A data frame with one row per gene symbol (or gene ID, or
+#'   transcript; as row names) and one column per sample, in the order of the
+#'   metadata. A message reports how many genes received a symbol.
 #'
 #' @examples
 #' if (requireNamespace("org.Hs.eg.db", quietly = TRUE)) {
@@ -56,37 +108,79 @@
 #'     expr = "tpm"
 #'   )
 #'   head(tpm)
+#'   # find the files instead of listing them
+#'   tpm2 <- rsem_read(file.path(ex, "data"), metadata = NULL,
+#'                     species = "human", expr = "tpm")
 #' }
 #' @export
-rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
+rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
+                      level = "gene", id = "symbol", sample_from = "filename") {
   if (missing(species)) .stopf("`species` must be \"human\" or \"mouse\".")
-  if (missing(expr)) .stopf("`expr` must be \"count\" or \"tpm\".")
+  if (missing(expr)) .stopf("`expr` must be \"count\", \"tpm\", \"length\" or (for transcripts) \"isopct\".")
   species <- .choice(species, c("human", "mouse"), "species")
-  expr <- .choice(expr, c("count", "tpm"), "expr")
+  level <- .choice(level, c("gene", "isoform"), "level")
+  expr <- .choice(expr, c("count", "tpm", "length", if (level == "isoform") "isopct"), "expr")
+  id <- .choice(id, c("symbol", "original"), "id")
+  column <- c(count = "expected_count", tpm = "TPM", length = "effective_length", isopct = "IsoPct")[[expr]]
 
-  samples <- .read_samples(data, metadata)
-  mat <- .read_matrix(samples, c(count = "expected_count", tpm = "TPM")[[expr]])
+  samples <- if (is.null(metadata)) {
+    .discover_samples(data, level, .choice(sample_from, c("filename", "parent_dir"), "sample_from"))
+  } else {
+    .read_samples(data, metadata)
+  }
+  if (level == "isoform") return(.read_isoforms(samples, column, species, id, expr))
 
+  mat <- .read_matrix(samples, column)
   stable <- .strip_ensembl_version(rownames(mat))
   .check_species(stable, species)
+  zero_note <- ""
+  zl <- NULL
+  if (expr == "length") {
+    zl <- colSums(mat == 0)
+    zero_note <- sprintf(
+      "\n  genes with effective length 0: %s in at least one sample, %s in every sample",
+      .fmt(sum(rowSums(mat == 0) > 0)), .fmt(sum(rowSums(mat == 0) == ncol(mat)))
+    )
+  }
+
+  if (id == "original") {
+    message(sprintf(
+      "rsem_read: %d samples, %d genes (species = %s, expr = %s, original IDs)%s",
+      ncol(mat), nrow(mat), species, expr, zero_note
+    ))
+    res <- as.data.frame(mat, check.names = FALSE)
+    attr(res, "gene_ids") <- data.frame(gene = rownames(mat), gene_id = rownames(mat), stringsAsFactors = FALSE)
+    if (!is.null(zl)) attr(res, "zero_length") <- zl
+    return(res)
+  }
+
   orgdb <- .orgdb_package(species)
   symbol <- .lookup_symbols(stable, orgdb)
-
-  out <- .sum_by_symbol(mat, symbol)
+  out <- if (expr == "length") {
+    .weighted_length_by_symbol(mat, .read_matrix(samples, "TPM"), symbol)
+  } else {
+    .sum_by_symbol(mat, symbol)
+  }
 
   has_symbol <- !is.na(symbol)
   message(sprintf(
     paste0(
       "rsem_read: %d samples, %d genes -> %d rows (species = %s, expr = %s, %s %s)\n",
       "  with symbol: %d genes (%d symbols merged from several IDs); ",
-      "kept as original IDs: %d genes"
+      "kept as original IDs: %d genes%s"
     ),
     ncol(mat), nrow(mat), nrow(out), species, expr, orgdb,
     as.character(utils::packageVersion(orgdb)),
-    sum(has_symbol), sum(table(symbol[has_symbol]) > 1L), sum(!has_symbol)
+    sum(has_symbol), sum(table(symbol[has_symbol]) > 1L), sum(!has_symbol), zero_note
   ))
 
-  as.data.frame(out, check.names = FALSE)
+  res <- as.data.frame(out, check.names = FALSE)
+  attr(res, "gene_ids") <- data.frame(
+    gene = ifelse(is.na(symbol), rownames(mat), symbol),
+    gene_id = rownames(mat), stringsAsFactors = FALSE
+  )
+  if (!is.null(zl)) attr(res, "zero_length") <- zl
+  res
 }
 
 .stopf <- function(fmt, ...) {
@@ -174,10 +268,49 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
   data.frame(sample_id = sample_id, ref = ref, path = path, stringsAsFactors = FALSE)
 }
 
-.read_matrix <- function(samples, column) {
-  required <- c("gene_id", column)
-  gene_id <- NULL
+# Find RSEM files under `data` and name the samples by file or folder name.
+.discover_samples <- function(data, level, sample_from) {
+  if (!is.character(data) || length(data) != 1L || is.na(data) || !dir.exists(data)) {
+    .stopf("`data` must be an existing directory: %s", toString(data))
+  }
+  suffix <- if (level == "gene") ".genes.results" else ".isoforms.results"
+  pattern <- paste0("\\", suffix, "$")
+  path <- sort(list.files(data, pattern = pattern, recursive = TRUE), method = "radix")
+  if (!length(path)) .stopf("No '*%s' files found under '%s'.", suffix, data)
+  if (sample_from == "filename") {
+    sample_id <- sub(pattern, "", basename(path))
+  } else {
+    if (any(dirname(path) == ".")) {
+      .stopf("sample_from = \"parent_dir\" needs every file in its own folder under '%s'; some are directly in it.", data)
+    }
+    sample_id <- basename(dirname(path))
+  }
+  if (anyDuplicated(sample_id)) {
+    d <- unique(sample_id[duplicated(sample_id)])
+    .stopf(
+      "Several files give the same sample ID (%s): %s", paste(d, collapse = ", "),
+      paste(path[sample_id %in% d], collapse = "; ")
+    )
+  }
+  o <- order(sample_id, method = "radix")
+  out <- data.frame(
+    sample_id = sample_id[o], ref = path[o], path = file.path(data, path[o]),
+    stringsAsFactors = FALSE
+  )
+  message(sprintf(
+    "rsem_read: found %d files under '%s' (sample ID from the %s):\n%s",
+    nrow(out), data, if (sample_from == "filename") "file name" else "folder name",
+    paste(sprintf("  %s <- %s", out$sample_id, out$ref), collapse = "\n")
+  ))
+  out
+}
+
+.read_matrix <- function(samples, column, key = "gene_id") {
+  required <- c(key, column)
+  row_id <- NULL
   mat <- NULL
+  classes <- list(key, column)
+  names(classes) <- c("character", "numeric")
   for (i in seq_len(nrow(samples))) {
     label <- sprintf("%s (sample %s)", samples$ref[[i]], samples$sample_id[[i]])
     header <- names(data.table::fread(
@@ -192,24 +325,24 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
       samples$path[[i]],
       sep = "\t",
       select = required,
-      colClasses = list(character = "gene_id", numeric = column),
+      colClasses = classes,
       data.table = FALSE,
       showProgress = FALSE
     ))
     if (!is.numeric(x[[column]])) .stopf("%s has non-numeric values in '%s'.", label, column)
-    if (anyNA(x[[column]]) || anyNA(x$gene_id)) .stopf("%s contains missing values.", label)
-    if (anyDuplicated(x$gene_id)) .stopf("%s contains duplicated gene_id values.", label)
+    if (anyNA(x[[column]]) || anyNA(x[[key]])) .stopf("%s contains missing values.", label)
+    if (anyDuplicated(x[[key]])) .stopf("%s contains duplicated %s values.", label, key)
 
-    if (is.null(gene_id)) {
-      gene_id <- x$gene_id
+    if (is.null(row_id)) {
+      row_id <- x[[key]]
       mat <- matrix(
-        NA_real_, length(gene_id), nrow(samples),
-        dimnames = list(gene_id, samples$sample_id)
+        NA_real_, length(row_id), nrow(samples),
+        dimnames = list(row_id, samples$sample_id)
       )
-    } else if (!identical(x$gene_id, gene_id)) {
+    } else if (!identical(x[[key]], row_id)) {
       .stopf(
-        "%s does not have the same genes in the same order as %s.",
-        label, samples$ref[[1]]
+        "%s does not have the same %s in the same order as %s.",
+        label, if (key == "gene_id") "genes" else "transcripts", samples$ref[[1]]
       )
     }
     mat[, i] <- x[[column]]
@@ -260,7 +393,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
   ann$SYMBOL[match(stable, ann$ENSEMBL)]
 }
 
-.sum_by_symbol <- function(mat, symbol) {
+.symbol_keys <- function(mat, symbol) {
   unmapped_id <- rownames(mat)[is.na(symbol)]
   clash <- intersect(unmapped_id, symbol[!is.na(symbol)])
   if (length(clash)) {
@@ -269,7 +402,11 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
       paste(utils::head(clash, 5L), collapse = ", ")
     )
   }
-  key <- ifelse(is.na(symbol), rownames(mat), symbol)
+  ifelse(is.na(symbol), rownames(mat), symbol)
+}
+
+.sum_by_symbol <- function(mat, symbol) {
+  key <- .symbol_keys(mat, symbol)
   out <- rowsum(mat, group = key, reorder = FALSE)
   if (!isTRUE(all.equal(colSums(out), colSums(mat), tolerance = 1e-9))) {
     .stopf("Internal error: the column sums changed while merging rows.")
@@ -277,28 +414,42 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr) {
   out
 }
 
-#' rsemverse: from RSEM gene results to analysis-ready gene tables
-#'
-#' rsemverse turns RSEM `*.genes.results` files into one table of gene
-#' symbols by samples and prepares that table for analysis. Every function
-#' takes the same table and returns the same table, so the steps chain in any
-#' order, and each prints what it did.
-#'
-#' @section Workflow:
-#' 1. [rsem_read()]: read counts or TPM into a gene symbol by sample table.
-#' 2. [rsem_filter()]: remove lowly expressed genes (edgeR `filterByExpr()`
-#'    rule, detection thresholds) or keep the most variable genes.
-#' 3. [rsem_subset()]: keep or remove gene groups (protein-coding,
-#'    mitochondrial, ribosomal, hemoglobin, sex, ERCC) taken from the OrgDb.
-#' 4. [rsem_normalize()]: normalize between samples (CPM, TMM, upper
-#'    quartile, DESeq2 median of ratios, quantile).
-#' 5. [rsem_transform()]: log2, z-score, centering, ranks.
-#' 6. [rsem_long()]: one row per gene and sample, with every column of the
-#'    sample table, for ggplot2 and dplyr.
-#'
-#' No gene list and no sample grouping are needed. Filtering and
-#' normalization give the same results as edgeR, DESeq2 and limma without
-#' depending on them.
-#'
-#' @keywords internal
-"_PACKAGE"
+# Effective lengths of rows that share a symbol: TPM-weighted mean, or the
+# plain mean where none of the rows has TPM in that sample.
+.weighted_length_by_symbol <- function(len, tpm, symbol) {
+  key <- .symbol_keys(len, symbol)
+  w <- rowsum(tpm, key, reorder = FALSE)
+  wsum <- rowsum(len * tpm, key, reorder = FALSE)
+  n <- as.vector(table(key)[rownames(w)])
+  plain <- rowsum(len, key, reorder = FALSE) / n
+  out <- plain
+  pos <- w > 0
+  out[pos] <- wsum[pos] / w[pos]
+  out
+}
+
+.read_isoforms <- function(samples, column, species, id, expr) {
+  mat <- .read_matrix(samples, column, key = "transcript_id")
+  g <- data.table::fread(
+    samples$path[[1]], sep = "\t", select = c("transcript_id", "gene_id"),
+    colClasses = "character", data.table = FALSE, showProgress = FALSE
+  )
+  if (!identical(g$transcript_id, rownames(mat))) .stopf("Internal error: transcript order changed.")
+  stable <- .strip_ensembl_version(g$gene_id)
+  .check_species(stable, species)
+  gene <- g$gene_id
+  if (id == "symbol") {
+    s <- .lookup_symbols(stable, .orgdb_package(species))
+    gene <- ifelse(is.na(s), g$gene_id, s)
+  }
+  message(sprintf(
+    "rsem_read: %d samples, %s transcripts of %s genes (species = %s, expr = %s, level = isoform)",
+    ncol(mat), .fmt(nrow(mat)), .fmt(length(unique(g$gene_id))), species, expr
+  ))
+  res <- as.data.frame(mat, check.names = FALSE)
+  attr(res, "tx2gene") <- data.frame(
+    transcript_id = g$transcript_id, gene_id = g$gene_id, gene = gene,
+    stringsAsFactors = FALSE
+  )
+  res
+}
