@@ -85,7 +85,10 @@ test_that("mitochondrial rRNA and tRNA genes kept under their Ensembl IDs are fo
   skip_if_not_installed("org.Hs.eg.db")
   genes <- c("MT-CO1", "ENSG00000210082.2", "ENSG00000210049", "MIR12136", "ENSG00000141510", "TP53")
   x <- as.data.frame(matrix(1, length(genes), 2, dimnames = list(genes, c("S1", "S2"))))
-  expect_equal(subset_names(x, "human", keep = "mito"), c("MT-CO1", "ENSG00000210082.2", "ENSG00000210049", "MIR12136"))
+  # MIR12136 is the symbol some OrgDb releases give to the ID of MT-TS1
+  expected <- c("MT-CO1", "ENSG00000210082.2", "ENSG00000210049",
+                if ("MIR12136" %in% .mito_symbols("human")) "MIR12136")
+  expect_equal(subset_names(x, "human", keep = "mito"), expected)
   expect_length(.mito_ensembl$human, 37L)
   expect_length(.mito_ensembl$mouse, 37L)
   expect_true(all(grepl("^ENSMUSG", .mito_ensembl$mouse)))

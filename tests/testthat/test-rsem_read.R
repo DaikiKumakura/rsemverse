@@ -10,12 +10,24 @@ test_that("arguments are required and checked", {
   expect_error(rsem_read(d, "no-such.csv", species = "human", expr = "count"), "existing CSV")
 })
 
+# Symbols of the example genes from the installed OrgDb: which IDs map and
+# which share a symbol depends on the OrgDb release, so the expectations are
+# computed from it instead of being fixed numbers.
+example_symbols <- function() {
+  raw <- example_raw("S1")
+  sym <- rsemverse:::.lookup_symbols(rsemverse:::.strip_ensembl_version(raw$gene_id), "org.Hs.eg.db")
+  list(raw = raw, sym = sym, key = ifelse(is.na(sym), raw$gene_id, sym))
+}
+
 test_that("the example returns a symbol-by-sample data frame", {
   skip_if_not_installed("org.Hs.eg.db")
+  e <- example_symbols()
   msg <- testthat::capture_messages(df <- read_example("count"))
   expect_length(msg, 1L)
-  expect_match(msg, "rsem_read: 3 samples, 44 genes -> 43 rows (species = human, expr = count, org.Hs.eg.db", fixed = TRUE)
-  expect_match(msg, "with symbol: 42 genes (1 symbols merged from several IDs); kept as original IDs: 2 genes", fixed = TRUE)
+  expect_match(msg, sprintf("rsem_read: 3 samples, 44 genes -> %d rows (species = human, expr = count, org.Hs.eg.db",
+                            length(unique(e$key))), fixed = TRUE)
+  expect_match(msg, sprintf("with symbol: %d genes (%d symbols merged from several IDs); kept as original IDs: %d genes",
+                            sum(!is.na(e$sym)), sum(table(e$sym) > 1L), sum(is.na(e$sym))), fixed = TRUE)
   expect_s3_class(df, "data.frame")
   expect_equal(colnames(df), c("S1", "S2", "S3"))
   expect_false(anyDuplicated(rownames(df)) > 0)
@@ -28,22 +40,26 @@ test_that("versioned Ensembl IDs are looked up, and the rest keep their ID", {
   df <- suppressMessages(read_example("count"))
   raw <- example_raw("S1")
   expect_true(any(grepl("^ENSG[0-9]+\\.[0-9]+$", raw$gene_id)))
-  expect_false(any(grepl("^ENSG[0-9]+", rownames(df))))
+  # Ensembl IDs left in the table are exactly those without a symbol
+  e <- example_symbols()
+  expect_true(all(grep("^ENSG[0-9]+", rownames(df), value = TRUE) %in% e$raw$gene_id[is.na(e$sym)]))
   expect_true(all(c("ERCC-00002", "10904") %in% rownames(df)))
   expect_equal(df["TP53", "S1"], raw$expected_count[grepl("^ENSG00000141510\\.", raw$gene_id)])
 })
 
 test_that("rows sharing a symbol are summed", {
   skip_if_not_installed("org.Hs.eg.db")
+  e <- example_symbols()
+  shared <- names(which(table(e$sym) > 1L))
+  skip_if(!length(shared), "the installed OrgDb gives no two example genes the same symbol")
   raw <- example_raw("S2")
-  pair <- raw$expected_count[sub("\\.[0-9]+$", "", raw$gene_id) %in% c("ENSG00000094914", "ENSG00000291836")]
-  expect_length(pair, 2L)
+  rows <- e$sym %in% shared[[1]]
+  expect_gte(sum(rows), 2L)
   df <- suppressMessages(read_example("count"))
-  expect_equal(df["AAAS", "S2"], sum(pair))
+  expect_equal(df[shared[[1]], "S2"], sum(raw$expected_count[rows]))
 
   tpm <- suppressMessages(read_example("tpm"))
-  raw_tpm <- raw$TPM[sub("\\.[0-9]+$", "", raw$gene_id) %in% c("ENSG00000094914", "ENSG00000291836")]
-  expect_equal(tpm["AAAS", "S2"], sum(raw_tpm))
+  expect_equal(tpm[shared[[1]], "S2"], sum(raw$TPM[rows]))
 })
 
 test_that("nothing is lost: column sums equal the input", {
