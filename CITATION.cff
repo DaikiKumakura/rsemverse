@@ -10,8 +10,8 @@ version: "0.3.0"
 date-released: "2026-11-19"
 identifiers:
   - type: doi
-    value: "10.5281/zenodo.24210460"
-    description: "Archived release (Zenodo)"
+    value: "10.5281/zenodo.24210459"
+    description: "All archived releases (Zenodo concept DOI)"
 repository-code: "https://github.com/DaikiKumakura/rsemverse"
 url: "https://daikikumakura.github.io/software/rsemverse.html"
 license: MIT

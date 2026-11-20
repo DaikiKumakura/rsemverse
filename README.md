@@ -2,7 +2,7 @@
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/DaikiKumakura/rsemverse/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/DaikiKumakura/rsemverse/actions/workflows/R-CMD-check.yaml)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24210460.svg)](https://doi.org/10.5281/zenodo.24210460)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24210459.svg)](https://doi.org/10.5281/zenodo.24210459)
 <!-- badges: end -->
 
 **From RSEM results to analysis-ready gene tables in R, for human and
@@ -334,7 +334,7 @@ heat   <- rsem_transform(top, c("log2", "zscore"))
 
 ## Citation
 
-Cite the archived version: <https://doi.org/10.5281/zenodo.24210460>. The
+Cite the archived version: <https://doi.org/10.5281/zenodo.24210459> (all versions; version 0.3.0 is <https://doi.org/10.5281/zenodo.24382507>). The
 citation metadata is in [`CITATION.cff`](https://github.com/DaikiKumakura/rsemverse/blob/main/CITATION.cff).
 
 ## License
