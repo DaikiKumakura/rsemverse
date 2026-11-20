@@ -30,6 +30,8 @@ reference:
     contents:
       - rsem_subset
       - rsem_biotype_profile
+      - rsem_mapping_qc
+      - rsem_sample_qc
   - title: "Step 4: Normalize"
     desc: "Make samples comparable: CPM, TMM, upper quartile, DESeq2, quantile."
     contents:

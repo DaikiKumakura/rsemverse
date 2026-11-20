@@ -8,7 +8,8 @@ rsem_biotype_profile(
   x,
   annotation,
   types = NULL,
-  ids = attr(x, "gene_ids", exact = TRUE)
+  ids = attr(x, "gene_ids", exact = TRUE),
+  total = NULL
 )
 }
 \arguments{
@@ -28,11 +29,18 @@ the annotation the RSEM reference was built from.}
 the annotation through their original gene IDs, which avoids losing
 genes whose OrgDb symbol differs from the GTF gene name. Without it,
 rows are matched by Ensembl ID or by gene name.}
+
+\item{total}{Optional total per sample used as the denominator of \code{share}:
+a numeric vector in the column order of \code{x}, or named by sample. The
+default is the sum of \code{x}, so shares are relative to the genes that are in
+\code{x}: after \code{\link[=rsem_filter]{rsem_filter()}} or \code{\link[=rsem_subset]{rsem_subset()}} the denominator is the
+total of the remaining genes. For QC shares (rRNA, mitochondrial) pass the
+totals of the unfiltered table, \code{colSums(unfiltered)}.}
 }
 \value{
 A data frame with one row per sample and type: \code{sample_id},
 \code{type}, \code{genes} (genes of that type in \code{x}), \code{value} (sum) and \code{share}
-(value / sample total).
+(value / sample total). A sample whose total is 0 has \code{NA} shares.
 }
 \description{
 Sums the values of each gene type (from a GTF file) per sample and divides

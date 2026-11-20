@@ -86,3 +86,19 @@ Rscript validation/encode-k562-0.3.R my-work-folder
 | `rsem_read(level = "isoform")` | 207,507 transcripts of 59,526 genes (0.96 s). Summed per gene, transcript TPM equals the gene file's TPM within 0.05 TPM (rounding in the files) |
 | `rsem_select_isoforms()` (TPM >= 1) | any sample: 59,603 transcripts of 14,449 genes; all samples: 25,948 of 10,810; with >= 10% of the gene's top transcript: 47,049; top transcript in any sample: 19,106; top transcript by mean: 12,610, one per gene |
 | `rsem_write(annotation = gtf)` | `.tsv.gz` with `gene`, `gene_id`, `gene_type` and the samples; values read back unchanged; 89 rows list several gene IDs |
+
+## Changes in 0.4.0 (November 21, 2026, rsemverse 0.4.0)
+
+`encode-k562-0.4.0.R` runs on the files that `encode-k562-0.3.R` downloaded.
+Windows, R 4.5.3, org.Hs.eg.db 3.22.0, edgeR 4.8.2.
+
+| Check | Result |
+| --- | --- |
+| Gene IDs after `rsem_filter()` (TPM >= 1 in >= 20% of samples) | 13,993 rows kept; `attr(x, "gene_ids")` has 14,034 rows (one per original ID, 37 rows of the table sum several IDs) and covers every kept symbol; `rsem_write()` of the filtered table writes `gene`, `gene_id` and the samples. Before the fix the attribute was gone |
+| Gzip input | the six gene files compressed with gzip and found with `metadata = NULL` gave the same table as the plain files (2.6–3.0 s) |
+| `--append-names` style IDs | files rewritten with the symbol appended to every gene that has one (`ENSG...._TP53`; made from the real files, not written by RSEM) gave the same 59,427 rows and values |
+| `rsem_filter(group = )` on counts | one group: 12,808 genes (as before); groups of two samples each (control, PTBP1, SRSF1): 14,755 genes, equal to `edgeR::filterByExpr(group = )` |
+| `rsem_biotype_profile(total = )` | Mt_rRNA share of TPM in CTRL_1: 1.575% on the unfiltered table; 1.578% when the filtered table is its own denominator; 1.575% with `total = colSums(unfiltered)` |
+| Isoforms through `rsem_filter()` | 49,759 of 207,507 transcripts kept (TPM >= 1 in >= 2 samples), with the same 49,759 rows in `attr(x, "tx2gene")` |
+| `rsem_mapping_qc()` | not run on real data: the ENCODE downloads have no RSEM `.cnt` files. The tests use files written to the format in RSEM's `cnt_file_description.txt`, and a file whose totals do not add up stops the function |
+| `rsem_sample_qc()` on the filtered table (13,993 genes, 2,000 for the PCA) | PC1–PC5 explain 41.7, 32.8, 9.7, 8.1 and 7.7% of the variance of those genes; scores and loadings equal `stats::prcomp()` and the Spearman matrix equals `stats::cor()` (12,000+ detected genes); each sample's most similar sample is its own replicate (median correlation with the others 0.944–0.958) |

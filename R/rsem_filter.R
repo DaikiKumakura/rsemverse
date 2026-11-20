@@ -11,7 +11,14 @@
 #'   size * 1e6` in at least *k* samples and its total count is at least 15.
 #'   *k* is the number of samples, or `10 + (n - 10) * 0.7` when there are more
 #'   than 10. `min_value` is the count a gene needs in a sample of median size
-#'   (default 10, the edgeR default).
+#'   (default 10, the edgeR default). With `group`, *k* is the size of the
+#'   smallest group (then reduced in the same way when it is above 10), and
+#'   with `design` it is `1 / max(hat(design))`, as in `filterByExpr()`. The
+#'   groups only set how many samples a gene must be expressed in; genes are
+#'   not chosen by comparing groups, so the filter stays independent of the
+#'   later test. Without them, a study with 3 controls and 10 treated samples
+#'   asks for expression in all 13, which can remove genes that only the
+#'   smaller group expresses.
 #' * `"detected"` (the default for TPM): a gene is kept when its value is at
 #'   least `min_value` in at least `min_samples` samples. The defaults are
 #'   TPM >= 1 or count >= 10, in at least 20% of the samples (at least one
@@ -39,6 +46,10 @@
 #'   reach `min_value`. A number below 1 is read as a proportion of the
 #'   samples (`0.5` = half). Default 0.2.
 #' @param n_top For `"variable"`: how many genes to keep. Default 2000.
+#' @param group For `"edger"`: the group of each sample (a vector in the
+#'   column order of `x`, or named by sample), as in `edgeR::filterByExpr()`.
+#' @param design For `"edger"`: a design matrix with one row per sample (in
+#'   the column order of `x`) instead of `group`.
 #'
 #' @return A data frame with the kept genes, in the same layout as `x`
 #'   (genes as row names, samples as columns).
@@ -63,13 +74,18 @@
 #'   rsem_filter(tpm, expr = "tpm", method = "variable", n_top = 10)
 #' }
 #' @export
-rsem_filter <- function(x, expr, method = NULL, min_value = NULL, min_samples = 0.2, n_top = 2000) {
+rsem_filter <- function(x, expr, method = NULL, min_value = NULL, min_samples = 0.2, n_top = 2000,
+                        group = NULL, design = NULL) {
   if (missing(expr)) .stopf("`expr` must be \"count\" or \"tpm\".")
   expr <- .choice(expr, c("count", "tpm"), "expr")
   if (is.null(method)) method <- if (expr == "count") "edger" else "detected"
   method <- .choice(method, c("edger", "detected", "nonzero", "variable"), "method")
   m <- .expr_matrix(x)
   n <- ncol(m)
+  if ((!is.null(group) || !is.null(design)) && method != "edger") {
+    .stopf("`group` and `design` are used by method = \"edger\" only.")
+  }
+  if (!is.null(group) && !is.null(design)) .stopf("Give `group` or `design`, not both.")
 
   if (method == "edger") {
     if (expr != "count") {
@@ -78,12 +94,30 @@ rsem_filter <- function(x, expr, method = NULL, min_value = NULL, min_samples = 
     min_count <- if (is.null(min_value)) 10 else .number(min_value, "min_value", lower = 0)
     lib <- colSums(m)
     if (any(lib <= 0)) .stopf("Every sample needs a nonzero total count; zero: %s", paste(colnames(m)[lib <= 0], collapse = ", "))
-    k <- if (n > 10) 10 + (n - 10) * 0.7 else n
+    k <- n
+    how <- sprintf("%d samples", n)
+    if (!is.null(group)) {
+      if (!is.null(names(group))) {
+        if (!setequal(names(group), colnames(m)) || anyDuplicated(names(group))) .stopf("The names of `group` must be the sample names of `x`.")
+        group <- group[colnames(m)]
+      }
+      if (length(group) != n || anyNA(group)) .stopf("`group` needs one value per sample (%d) and no missing values.", n)
+      sizes <- tabulate(as.factor(group))
+      k <- min(sizes[sizes > 0L])
+      how <- sprintf("the smallest of %d groups, %d samples", sum(sizes > 0L), k)
+    } else if (!is.null(design)) {
+      design <- as.matrix(design)
+      if (nrow(design) != n || anyNA(design)) .stopf("`design` needs one row per sample (%d) and no missing values.", n)
+      k <- 1 / max(stats::hat(design))
+      how <- sprintf("1 / max leverage of the design = %s", format(signif(k, 4)))
+    }
+    if (k > 10) k <- 10 + (k - 10) * 0.7
     cutoff <- min_count / stats::median(lib) * 1e6
     cpm <- sweep(m, 2L, lib, "/") * 1e6
     tol <- 1e-14
     keep <- rowSums(cpm >= cutoff) >= k - tol & rowSums(m) >= 15 - tol
-    rule <- sprintf("CPM >= %s in >= %s of %d samples and total count >= 15", signif(cutoff, 3), format(k), n)
+    rule <- sprintf("CPM >= %s in >= %s of %d samples%s and total count >= 15", signif(cutoff, 3), format(signif(k, 6)), n,
+                    if (is.null(group) && is.null(design)) "" else sprintf(" (%s)", how))
   } else if (method == "detected") {
     threshold <- if (is.null(min_value)) c(count = 10, tpm = 1)[[expr]] else .number(min_value, "min_value", lower = 0)
     needed <- .needed_samples(min_samples, n)
@@ -108,5 +142,5 @@ rsem_filter <- function(x, expr, method = NULL, min_value = NULL, min_samples = 
     "rsem_filter (%s): kept %s of %s genes (%s); removed %s",
     method, .fmt(sum(keep)), .fmt(nrow(m)), rule, .fmt(sum(!keep))
   ))
-  .as_table(m[keep, , drop = FALSE])
+  .as_table(m[keep, , drop = FALSE], from = x)
 }

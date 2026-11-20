@@ -117,7 +117,7 @@ rsem_normalize <- function(x, expr, method) {
       deseq2 = "size factors"
     )[[method]], ": ", paste(sprintf("%s %s", names(factors), signif(factors, 4)), collapse = ", "))
   ))
-  res <- .as_table(out)
+  res <- .as_table(out, from = x)
   if (!is.null(factors)) attr(res, "factors") <- factors
   res
 }

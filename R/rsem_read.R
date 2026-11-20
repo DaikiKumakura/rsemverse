@@ -16,7 +16,7 @@
 #' ```
 #'
 #' With `metadata = NULL` the files are found instead: every
-#' `*.genes.results` (or `*.isoforms.results`) file under `data`, searched
+#' `*.genes.results` (or `*.isoforms.results`, with or without `.gz`) file under `data`, searched
 #' recursively. The sample ID is the file name without the suffix
 #' (`sample_from = "filename"`) or the name of the folder that holds the file
 #' (`sample_from = "parent_dir"`, for layouts such as `S1/rsem.genes.results`).
@@ -24,6 +24,9 @@
 #' duplicated sample IDs stop the function rather than overwrite each other.
 #' Groups are never guessed from file names; give them in the sample table of
 #' [rsem_long()] or [rsem_fit_reference()].
+#'
+#' Transcript files must give every transcript the same gene in all samples; a
+#' file from a different reference stops the function.
 #'
 #' Every file needs the column `gene_id` (`transcript_id` for transcripts) and
 #' the column `expr` selects; other columns are ignored. All files must
@@ -54,8 +57,14 @@
 #' before any log transformation: `log2(1 + TPM_a + TPM_b)` is not the sum of
 #' `log2(1 + TPM_a)` and `log2(1 + TPM_b)`.
 #'
-#' With `id = "original"`, rows keep the `gene_id` of the file and no OrgDb is
-#' needed.
+#' With `id = "original"`, rows keep the `gene_id` of the file and no OrgDb or
+#' `species` is needed, so results for any organism or a de novo transcriptome
+#' can be read.
+#'
+#' Files made with `rsem-calculate-expression --append-names` have IDs such
+#' as `ENSG00000141510.18_TP53`; the version and the appended name are removed
+#' before the lookup, and rows without a symbol keep the full ID of the file.
+#' Files may be gzip-compressed (`*.genes.results.gz`).
 #'
 #' Rows appear in the order in which they first occur in the files. Values are
 #' not rounded and TPM is not renormalized.
@@ -83,8 +92,9 @@
 #' @param data Directory that contains the RSEM files.
 #' @param metadata Path to the metadata CSV, or `NULL` to find the files in
 #'   `data` (see Input).
-#' @param species `"human"` or `"mouse"`. Required. The function stops if the
-#'   gene IDs are of the other species.
+#' @param species `"human"` or `"mouse"`. Required with `id = "symbol"`; the
+#'   function stops if the gene IDs are of the other species. Not used with
+#'   `id = "original"`, which works for any organism.
 #' @param expr `"count"` (`expected_count`), `"tpm"` (`TPM`), `"length"`
 #'   (`effective_length`) or, for transcripts, `"isopct"` (`IsoPct`).
 #'   Required.
@@ -115,12 +125,13 @@
 #' @export
 rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
                       level = "gene", id = "symbol", sample_from = "filename") {
-  if (missing(species)) .stopf("`species` must be \"human\" or \"mouse\".")
+  id <- .choice(id, c("symbol", "original"), "id")
+  if (id == "symbol" && missing(species)) .stopf("`species` must be \"human\" or \"mouse\".")
   if (missing(expr)) .stopf("`expr` must be \"count\", \"tpm\", \"length\" or (for transcripts) \"isopct\".")
-  species <- .choice(species, c("human", "mouse"), "species")
+  # with the IDs of the files, no annotation package is used and any organism works
+  species <- if (id == "original") NULL else .choice(species, c("human", "mouse"), "species")
   level <- .choice(level, c("gene", "isoform"), "level")
   expr <- .choice(expr, c("count", "tpm", "length", if (level == "isoform") "isopct"), "expr")
-  id <- .choice(id, c("symbol", "original"), "id")
   column <- c(count = "expected_count", tpm = "TPM", length = "effective_length", isopct = "IsoPct")[[expr]]
 
   samples <- if (is.null(metadata)) {
@@ -132,7 +143,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
 
   mat <- .read_matrix(samples, column)
   stable <- .strip_ensembl_version(rownames(mat))
-  .check_species(stable, species)
+  if (id == "symbol") .check_species(stable, species)
   zero_note <- ""
   zl <- NULL
   if (expr == "length") {
@@ -145,8 +156,8 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
 
   if (id == "original") {
     message(sprintf(
-      "rsem_read: %d samples, %d genes (species = %s, expr = %s, original IDs)%s",
-      ncol(mat), nrow(mat), species, expr, zero_note
+      "rsem_read: %d samples, %d genes (expr = %s, original IDs)%s",
+      ncol(mat), nrow(mat), expr, zero_note
     ))
     res <- as.data.frame(mat, check.names = FALSE)
     attr(res, "gene_ids") <- data.frame(gene = rownames(mat), gene_id = rownames(mat), stringsAsFactors = FALSE)
@@ -200,10 +211,30 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   x
 }
 
-# Only Ensembl gene IDs lose their version suffix; other IDs (spike-ins,
-# numeric IDs, `..._PAR_Y`) are returned unchanged.
+# Only Ensembl gene IDs lose their version suffix and the gene name that
+# `rsem-calculate-expression --append-names` adds (`ENSG00000141510.18_TP53`);
+# other IDs (spike-ins, numeric IDs, `..._PAR_Y`) are returned unchanged.
 .strip_ensembl_version <- function(x) {
-  sub("^(ENS[A-Z]*G[0-9]+)\\.[0-9]+$", "\\1", as.character(x))
+  sub("^(ENS[A-Z]*G[0-9]+)(\\.[0-9]+)?(_(?!PAR_Y).+)?$", "\\1", as.character(x), perl = TRUE)
+}
+
+# RSEM result files may be gzip-compressed. Read them through a connection so
+# that no extra package is needed for .gz files.
+.rsem_header <- function(path) {
+  line <- if (grepl("\\.gz$", path)) {
+    con <- gzfile(path, "r"); on.exit(close(con)); readLines(con, n = 1L, warn = FALSE)
+  } else {
+    con <- file(path, "r"); on.exit(close(con)); readLines(con, n = 1L, warn = FALSE)
+  }
+  strsplit(line, "\t", fixed = TRUE)[[1L]]
+}
+.fread_rsem <- function(path, ...) {
+  if (grepl("\\.gz$", path)) {
+    con <- gzfile(path, "r"); on.exit(close(con))
+    data.table::fread(text = readLines(con, warn = FALSE), sep = "\t", data.table = FALSE, showProgress = FALSE, ...)
+  } else {
+    data.table::fread(path, sep = "\t", data.table = FALSE, showProgress = FALSE, ...)
+  }
 }
 
 .read_samples <- function(data, metadata) {
@@ -273,8 +304,8 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   if (!is.character(data) || length(data) != 1L || is.na(data) || !dir.exists(data)) {
     .stopf("`data` must be an existing directory: %s", toString(data))
   }
-  suffix <- if (level == "gene") ".genes.results" else ".isoforms.results"
-  pattern <- paste0("\\", suffix, "$")
+  suffix <- c(gene = ".genes.results", isoform = ".isoforms.results", cnt = ".cnt")[[level]]
+  pattern <- paste0(gsub(".", "\\.", suffix, fixed = TRUE), if (level == "cnt") "$" else "(\\.gz)?$")
   path <- sort(list.files(data, pattern = pattern, recursive = TRUE), method = "radix")
   if (!length(path)) .stopf("No '*%s' files found under '%s'.", suffix, data)
   if (sample_from == "filename") {
@@ -284,6 +315,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
       .stopf("sample_from = \"parent_dir\" needs every file in its own folder under '%s'; some are directly in it.", data)
     }
     sample_id <- basename(dirname(path))
+    if (level == "cnt") sample_id <- sub("\\.stat$", "", sample_id)  # RSEM writes <name>.stat/<name>.cnt
   }
   if (anyDuplicated(sample_id)) {
     d <- unique(sample_id[duplicated(sample_id)])
@@ -298,37 +330,31 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
     stringsAsFactors = FALSE
   )
   message(sprintf(
-    "rsem_read: found %d files under '%s' (sample ID from the %s):\n%s",
-    nrow(out), data, if (sample_from == "filename") "file name" else "folder name",
+    "%s: found %d files under '%s' (sample ID from the %s):\n%s",
+    if (level == "cnt") "rsem_mapping_qc" else "rsem_read", nrow(out), data, if (sample_from == "filename") "file name" else "folder name",
     paste(sprintf("  %s <- %s", out$sample_id, out$ref), collapse = "\n")
   ))
   out
 }
 
-.read_matrix <- function(samples, column, key = "gene_id") {
-  required <- c(key, column)
+# `also`: a second ID column that must be the same in every file (the gene of
+# each transcript), checked against the first file.
+.read_matrix <- function(samples, column, key = "gene_id", also = NULL) {
+  required <- c(key, column, also)
   row_id <- NULL
+  also_id <- NULL
   mat <- NULL
-  classes <- list(key, column)
+  classes <- list(c(key, also), column)
   names(classes) <- c("character", "numeric")
   for (i in seq_len(nrow(samples))) {
     label <- sprintf("%s (sample %s)", samples$ref[[i]], samples$sample_id[[i]])
-    header <- names(data.table::fread(
-      samples$path[[i]], sep = "\t", nrows = 0L, check.names = FALSE, showProgress = FALSE
-    ))
+    header <- .rsem_header(samples$path[[i]])
     missing_cols <- setdiff(required, header)
     if (length(missing_cols)) {
       .stopf("%s is missing the column(s): %s", label, paste(missing_cols, collapse = ", "))
     }
 
-    x <- suppressWarnings(data.table::fread(
-      samples$path[[i]],
-      sep = "\t",
-      select = required,
-      colClasses = classes,
-      data.table = FALSE,
-      showProgress = FALSE
-    ))
+    x <- suppressWarnings(.fread_rsem(samples$path[[i]], select = required, colClasses = classes))
     if (!is.numeric(x[[column]])) .stopf("%s has non-numeric values in '%s'.", label, column)
     if (anyNA(x[[column]]) || anyNA(x[[key]])) .stopf("%s contains missing values.", label)
     if (anyDuplicated(x[[key]])) .stopf("%s contains duplicated %s values.", label, key)
@@ -344,6 +370,16 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
         "%s does not have the same %s in the same order as %s.",
         label, if (key == "gene_id") "genes" else "transcripts", samples$ref[[1]]
       )
+    }
+    if (!is.null(also)) {
+      if (is.null(also_id)) {
+        also_id <- x[[also]]
+      } else if (!identical(x[[also]], also_id)) {
+        .stopf(
+          "%s has a different %s for some %s than %s (the files come from different references).",
+          label, also, key, samples$ref[[1]]
+        )
+      }
     }
     mat[, i] <- x[[column]]
   }
@@ -429,22 +465,20 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
 }
 
 .read_isoforms <- function(samples, column, species, id, expr) {
-  mat <- .read_matrix(samples, column, key = "transcript_id")
-  g <- data.table::fread(
-    samples$path[[1]], sep = "\t", select = c("transcript_id", "gene_id"),
-    colClasses = "character", data.table = FALSE, showProgress = FALSE
-  )
+  mat <- .read_matrix(samples, column, key = "transcript_id", also = "gene_id")
+  g <- .fread_rsem(samples$path[[1]], select = c("transcript_id", "gene_id"), colClasses = "character")
   if (!identical(g$transcript_id, rownames(mat))) .stopf("Internal error: transcript order changed.")
   stable <- .strip_ensembl_version(g$gene_id)
-  .check_species(stable, species)
+  if (id == "symbol") .check_species(stable, species)
   gene <- g$gene_id
   if (id == "symbol") {
     s <- .lookup_symbols(stable, .orgdb_package(species))
     gene <- ifelse(is.na(s), g$gene_id, s)
   }
   message(sprintf(
-    "rsem_read: %d samples, %s transcripts of %s genes (species = %s, expr = %s, level = isoform)",
-    ncol(mat), .fmt(nrow(mat)), .fmt(length(unique(g$gene_id))), species, expr
+    "rsem_read: %d samples, %s transcripts of %s genes (%sexpr = %s, level = isoform)",
+    ncol(mat), .fmt(nrow(mat)), .fmt(length(unique(g$gene_id))),
+    if (is.null(species)) "original IDs, " else paste0("species = ", species, ", "), expr
   ))
   res <- as.data.frame(mat, check.names = FALSE)
   attr(res, "tx2gene") <- data.frame(

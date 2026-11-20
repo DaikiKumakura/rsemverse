@@ -126,7 +126,7 @@ rsem_subset <- function(x, species, keep = NULL, remove = NULL, annotation = NUL
     if (length(remove)) paste0("; remove ", paste(remove, collapse = ", ")) else "",
     paste(report, collapse = ", ")
   ))
-  .as_table(m[selected, , drop = FALSE])
+  .as_table(m[selected, , drop = FALSE], from = x)
 }
 
 # Logical matrix: genes x requested groups.

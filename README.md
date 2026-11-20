@@ -37,6 +37,8 @@ same table and returns the same table, so the steps chain in any order.
           rsem_filter()            remove lowly expressed genes
           rsem_subset()            keep or remove gene groups (OrgDb or GTF)
           rsem_biotype_profile()   share of rRNA, lncRNA, … in each sample
+          rsem_mapping_qc()        alignable, filtered, unique-gene reads from the .cnt files
+          rsem_sample_qc()         PCA, sample correlation, detected genes per sample
           rsem_normalize()         normalize between samples
           rsem_transform()         log2, z-score, ranks
           rsem_fit_reference()     z-scores against a fixed control group
@@ -53,11 +55,13 @@ Effective lengths: `rsem_read(expr = "length")` and `rsem_length_profile()`.
 
 | Step | Function | Choices (default first) |
 |---|---|---|
-| Read | `rsem_read()` | `expr = "count"`, `"tpm"`, `"length"` (`"isopct"` for transcripts); `species = "human"` or `"mouse"`; `metadata = NULL` finds the files |
+| Read | `rsem_read()` | `expr = "count"`, `"tpm"`, `"length"` (`"isopct"` for transcripts); `species = "human"` or `"mouse"`; `metadata = NULL` finds the files (`.gz` too); `id = "original"` for any organism; `--append-names` IDs are understood |
 | Thresholds | `rsem_detection_curve()` | thresholds × number or share of samples |
 | Filter | `rsem_filter()` | `"edger"` (counts) / `"detected"` (TPM), `"nonzero"`, `"variable"` |
 | Select genes | `rsem_subset()` | `"protein_coding"`, `"mito"`, `"ribo"`, `"hb"`, `"sex"`, `"ercc"`; with a GTF also `"rrna"`, `"mito_rrna"`, `"mito_trna"`, `"snorna"`, `"snrna"`, `"mirna"`, `"lncrna"` |
-| Gene types | `rsem_biotype_profile()` | share of each gene type of a GTF per sample |
+| Gene types | `rsem_biotype_profile()` | share of each gene type of a GTF per sample; `total =` for the unfiltered denominator |
+| Sample QC | `rsem_sample_qc()` | PCA on the most variable genes, sample correlation (`"spearman"`, `"pearson"`, `"kendall"`) on detected, all or variable genes, per-sample summary |
+| Read statistics | `rsem_mapping_qc()` | alignable, unalignable, filtered, unique-gene and multi-gene fractions from `.cnt` files |
 | Normalize | `rsem_normalize()` | `"cpm"`, `"tmm"`, `"tmmwsp"`, `"upper_quartile"`, `"deseq2"`, `"quantile"` |
 | Transform | `rsem_transform()` | `"log2"`, `"zscore"`, `"center"`, `"rank"` |
 | Reference z-scores | `rsem_fit_reference()`, `rsem_apply_reference()` | reference samples or group; `zero_sd = "na"` or `"drop"` |
@@ -164,7 +168,7 @@ transcript-to-gene table in `attr(x, "tx2gene")`.
 
 | Method | Keeps a gene when | Typical use |
 |---|---|---|
-| `"edger"` (default for counts) | CPM reaches 10 counts in a median-sized sample, in all samples (or 10 + 70% of the rest above 10), and the total count is at least 15; edgeR `filterByExpr()` with all samples as one group | before normalization or differential expression |
+| `"edger"` (default for counts) | CPM reaches 10 counts in a median-sized sample, in all samples (or 10 + 70% of the rest above 10), and the total count is at least 15; edgeR `filterByExpr()`. All samples are one group unless `group` (or `design`) is given: then the smallest group sets the number of samples | before normalization or differential expression |
 | `"detected"` (default for TPM) | the value reaches `min_value` (TPM 1, count 10) in `min_samples` samples (20% of them) | TPM tables; "expressed in at least n samples" |
 | `"nonzero"` | it is above zero in any sample | removing empty rows only |
 | `"variable"` | it is among the `n_top` (2000) with the largest variance of log2 | before PCA, clustering, heatmaps |
@@ -177,6 +181,12 @@ settings.
 ```r
 rsem_detection_curve(tpm, "tpm", thresholds = c(0.5, 1, 2, 5), min_samples = c(1, 0.2, 0.5))
 ```
+
+With 3 controls and 10 treated samples, the all-in-one-group rule asks for
+expression in all 13 samples; `rsem_filter(counts, "count", group = condition)`
+asks for the size of the smallest group, as `edgeR::filterByExpr(group = )`
+does. Groups only set how many samples a gene must be expressed in; no gene
+is chosen by comparing groups.
 
 ### Select genes: `rsem_subset()`
 
@@ -266,6 +276,36 @@ ggplot2::ggplot(subset(long, gene == "TP53"), ggplot2::aes(group, value)) +
   ggplot2::geom_boxplot()
 ```
 
+### Sample QC: `rsem_sample_qc()`
+
+Returns the tables behind a first look at the samples: principal components
+(`pca_scores`, `pca_variance`, `pca_loadings`), the sample correlation and
+distance matrices, and per sample the total, the number of detected genes and
+how well it correlates with the others. The PCA uses the `n_top` most variable
+genes of `log2(value + 1)`, centred and not scaled; the correlation uses its
+own gene set (`correlation_genes`: genes detected in any sample, all genes, or
+the PCA genes), because restricting it to variable genes changes the values a
+great deal. No sample is flagged or removed.
+
+```r
+qc <- rsem_sample_qc(filtered, metadata = "metadata.csv", n_top = 2000)
+qc$pca_variance          # share of variance per component
+ggplot2::ggplot(qc$pca_scores, ggplot2::aes(PC1, PC2, colour = group)) + ggplot2::geom_point()
+qc$sample_summary        # total, detected genes, median correlation with the others
+```
+
+### Read statistics: `rsem_mapping_qc()`
+
+Reads the `.cnt` file RSEM writes for each sample (`<name>.stat/<name>.cnt`)
+and returns the alignable, unalignable and filtered fractions, the share of
+alignable reads that map to one gene or to several, and the alignments per
+read. A file whose totals do not add up stops the function. The statistics
+describe the alignments given to RSEM, not the abundance estimates.
+
+```r
+rsem_mapping_qc("rsem", metadata = NULL)
+```
+
 ### Write: `rsem_write()`
 
 Writes a TSV (gzip-compressed for `.gz`) with the gene, the original gene IDs
@@ -291,10 +331,10 @@ ones, so use it only for a stated purpose.
 | Goal | Steps |
 |---|---|
 | Heatmap of variable genes | counts → `rsem_filter()` → `rsem_normalize("tmm")` → `rsem_filter("variable")` → `rsem_transform(c("log2", "zscore"))` |
-| PCA | counts → `rsem_filter()` → `rsem_subset(remove = c("mito", "ribo", "sex"))` → `rsem_normalize("tmm")` → `rsem_transform("log2")` |
+| PCA | counts → `rsem_filter()` → `rsem_subset(remove = c("mito", "ribo", "sex"))` → `rsem_normalize("tmm")` → `rsem_sample_qc()` (it takes the log itself) |
 | Plot genes by group | any of the above → `rsem_long(metadata = "metadata.csv")` → ggplot2 |
 | Cell-type deconvolution | `rsem_read(expr = "tpm")` straight into [bulkdeconv](https://daikikumakura.github.io/bulkdeconv/); do not filter, normalize or log-transform first |
-| Differential expression | `rsem_read(expr = "count")` → `rsem_filter()` → DESeq2 (after `round()`) or edgeR; both need the raw counts, not normalized values |
+| Differential expression | filter with `rsem_filter(group = ...)`, but test on the RSEM files through `tximport`, not on rounded counts (see below) |
 | Treated versus controls, sample by sample | `rsem_read(expr = "tpm")` → `rsem_filter()` → `rsem_fit_reference(group = ...)` → `rsem_apply_reference()` |
 | rRNA and mitochondrial share per sample | `rsem_read()` → `rsem_biotype_profile(annotation = gtf)` |
 | Share a table with IDs and gene types | `rsem_read()` → `rsem_write(annotation = gtf)` |
@@ -308,6 +348,31 @@ tmm    <- rsem_normalize(rsem_filter(counts, "count"), "count", "tmm")
 top    <- rsem_filter(tmm, "count", method = "variable", n_top = 500)
 heat   <- rsem_transform(top, c("log2", "zscore"))
 ```
+
+## Differential expression
+
+RSEM's expected counts are not integer counts of a fixed gene length: a
+gene's effective length differs between samples when the isoform usage or the
+fragment length distribution differs. DESeq2 and edgeR can model this with a
+length offset, which `tximport` supplies. Rounding `rsem_read(expr = "count")`
+and passing it to DESeq2 ignores the offset; it is a shortcut that is
+acceptable only when the isoform usage is similar across groups. The route
+described in the tximport and DESeq2 documentation reads the RSEM files
+directly:
+
+```r
+library(tximport)
+library(DESeq2)
+files <- setNames(file.path("data", samples$ref), samples$sample_id)
+txi <- tximport(files, type = "rsem", txIn = FALSE, txOut = FALSE)
+```
+
+`DESeqDataSetFromTximport()` stops when a gene has effective length 0.
+`rsem_read(expr = "length")` reports those genes and `rsem_length_profile()`
+lists them; whether to remove them or to import the transcript-level files
+(`txIn = TRUE`) is a decision for the analysis, and replacing 0 by 1 changes
+the offset of those genes. Use rsemverse's tables for filtering decisions,
+plots and scores, and the files themselves for the test.
 
 ## Validation
 
@@ -328,9 +393,7 @@ heat   <- rsem_transform(top, c("log2", "zscore"))
 - [bulkdeconv](https://daikikumakura.github.io/bulkdeconv/) estimates cell-type
   composition from the TPM table returned by `rsem_read()`.
 - [rsemflow](https://daikikumakura.github.io/rsemflow/) reads the same RSEM
-  files to run DESeq2, GSEA, GSVA, PCA and sample correlation from the
-  command line. rsemverse prepares tables and rsemflow produces results, so
-  PCA and correlation matrices are left to rsemflow.
+  files to run DESeq2, GSEA and GSVA from the command line.
 
 ## Citation
 

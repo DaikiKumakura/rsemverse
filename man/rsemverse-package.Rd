@@ -21,7 +21,9 @@ detection threshold keeps, then remove lowly expressed genes (edgeR
 \code{filterByExpr()} rule, detection thresholds) or keep the most variable.
 \item \code{\link[=rsem_subset]{rsem_subset()}} and \code{\link[=rsem_biotype_profile]{rsem_biotype_profile()}}: keep or remove gene groups
 taken from the OrgDb or from a GTF file (rRNA, snoRNA, lncRNA, ...),
-and see what share of each sample they take.
+and see what share of each sample they take. \code{\link[=rsem_mapping_qc]{rsem_mapping_qc()}} reads
+the read assignment statistics of the RSEM \code{.cnt} files, and
+\code{\link[=rsem_sample_qc]{rsem_sample_qc()}} gives PCA, sample correlation and a per-sample summary.
 \item \code{\link[=rsem_normalize]{rsem_normalize()}}: normalize between samples (CPM, TMM, TMMwsp, upper
 quartile, DESeq2 median of ratios, quantile).
 \item \code{\link[=rsem_transform]{rsem_transform()}} and \code{\link[=rsem_fit_reference]{rsem_fit_reference()}} /

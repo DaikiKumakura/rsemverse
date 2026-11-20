@@ -106,12 +106,18 @@
 #'   the annotation through their original gene IDs, which avoids losing
 #'   genes whose OrgDb symbol differs from the GTF gene name. Without it,
 #'   rows are matched by Ensembl ID or by gene name.
+#' @param total Optional total per sample used as the denominator of `share`:
+#'   a numeric vector in the column order of `x`, or named by sample. The
+#'   default is the sum of `x`, so shares are relative to the genes that are in
+#'   `x`: after [rsem_filter()] or [rsem_subset()] the denominator is the
+#'   total of the remaining genes. For QC shares (rRNA, mitochondrial) pass the
+#'   totals of the unfiltered table, `colSums(unfiltered)`.
 #' @param types Gene types to report (values of `gene_type`, such as
 #'   `"rRNA"` or `"protein_coding"`). Default: every type found in `x`.
 #'
 #' @return A data frame with one row per sample and type: `sample_id`,
 #'   `type`, `genes` (genes of that type in `x`), `value` (sum) and `share`
-#'   (value / sample total).
+#'   (value / sample total). A sample whose total is 0 has `NA` shares.
 #'
 #' @examples
 #' ann <- data.frame(gene_id = c("ENSG01", "ENSG02", "ENSG03"),
@@ -120,8 +126,10 @@
 #' x <- data.frame(S1 = c(10, 5, 1), S2 = c(20, 0, 2), row.names = c("A", "B", "C"))
 #' rsem_biotype_profile(x, ann)
 #' @export
-rsem_biotype_profile <- function(x, annotation, types = NULL, ids = attr(x, "gene_ids", exact = TRUE)) {
+rsem_biotype_profile <- function(x, annotation, types = NULL, ids = attr(x, "gene_ids", exact = TRUE),
+                                 total = NULL) {
   m <- .expr_matrix(x)
+  total_arg <- total
   ann <- .read_annotation(annotation)
   type <- .annotate_rows(rownames(m), ann, ids)
   type[is.na(type)] <- "unannotated"
@@ -132,20 +140,34 @@ rsem_biotype_profile <- function(x, annotation, types = NULL, ids = attr(x, "gen
     .stopf("`types` must be one or more gene types.")
   }
   absent <- setdiff(types, c(ann$gene_type, "unannotated", "multiple"))
-  total <- colSums(m)
+  if (is.null(total)) {
+    total <- colSums(m)
+  } else {
+    if (!is.numeric(total) || length(total) != ncol(m) || anyNA(total) || any(total < 0)) {
+      .stopf("`total` needs one number per sample (%d), not negative.", ncol(m))
+    }
+    if (!is.null(names(total))) {
+      if (!setequal(names(total), colnames(m))) .stopf("The names of `total` must be the sample names of `x`.")
+      total <- total[colnames(m)]
+    }
+  }
+  total <- as.numeric(total)
+  zero <- total == 0
   rows <- lapply(types, function(t) {
     sel <- type == t
     v <- colSums(m[sel, , drop = FALSE])
     data.frame(
       sample_id = colnames(m), type = t, genes = sum(sel), value = if (t %in% absent) NA_real_ else v,
-      share = if (t %in% absent) NA_real_ else v / total, stringsAsFactors = FALSE
+      share = if (t %in% absent) NA_real_ else ifelse(zero, NA_real_, v / total), stringsAsFactors = FALSE
     )
   })
   out <- do.call(rbind, rows)
   rownames(out) <- NULL
   message(sprintf(
-    "rsem_biotype_profile: %s genes x %d samples; %s of the genes not in the annotation%s",
-    .fmt(nrow(m)), ncol(m), .fmt(sum(type == "unannotated")),
+    "rsem_biotype_profile: %s genes x %d samples; shares of the %s; %s of the genes not in the annotation%s%s",
+    .fmt(nrow(m)), ncol(m), if (is.null(total_arg)) "total of the genes in `x`" else "totals given in `total`",
+    .fmt(sum(type == "unannotated")),
+    if (any(zero)) paste0("; total 0, share NA: ", paste(colnames(m)[zero], collapse = ", ")) else "",
     if (length(absent)) paste0("; not in the annotation, so not measurable (NA): ", paste(absent, collapse = ", ")) else ""
   ))
   out

@@ -95,7 +95,8 @@ rsem_select_isoforms <- function(x, tx2gene = attr(x, "tx2gene", exact = TRUE), 
     if (highest_only) ", top transcript only" else "", rule
   ))
   res <- .as_table(m[keep, , drop = FALSE])
-  attr(res, "tx2gene") <- tx2gene[match(rownames(res), tx2gene$transcript_id), , drop = FALSE]
-  rownames(attr(res, "tx2gene")) <- NULL
+  tg <- tx2gene[match(rownames(res), tx2gene$transcript_id), , drop = FALSE]
+  rownames(tg) <- NULL
+  attr(res, "tx2gene") <- tg
   res
 }

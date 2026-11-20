@@ -29,6 +29,8 @@ often they are used.
 | Keep isoforms by TPM, by share of the dominant isoform, or only the dominant one | Trinity, [`filter_low_expr_transcripts.pl`](https://github.com/trinityrnaseq/trinityrnaseq/blob/master/util/filter_low_expr_transcripts.pl) | `rsem_select_isoforms()`: the same rules, the same exclusion between the share rule and "dominant only", explicit combination over samples |
 | Keep transcripts above an IsoPct | [Trinity documentation](https://github.com/trinityrnaseq/trinityrnaseq/wiki) | `rsem_read(level = "isoform", expr = "isopct")` then a filter on the table |
 | Z-scores against control samples | Scripts that compute each gene's mean and SD in controls | `rsem_fit_reference()` and `rsem_apply_reference()`: fit once, apply to any samples |
+| PCA and sample correlation on the expression table | EuchroGene [TPM_PCA_Correlation](https://github.com/euchrogene/TPM_PCA_Correlation), quadbio [RNAseq_tutorial](https://github.com/quadbio/RNAseq_tutorial) | `rsem_sample_qc()`: PCA on the most variable genes, correlation on its own gene set, results as tables checked against `prcomp()` and `cor()` |
+| Alignment statistics of the `.cnt` files | [RNASeqPipelineR](https://github.com/RGLab/RNASeqPipelineR), [MultiQC RSEM module](https://docs.seqera.io/multiqc/modules/rsem) | `rsem_mapping_qc()`: the fractions as a table, files whose totals do not add up are refused |
 | TMMwsp factors | `edgeR::calcNormFactors(method = "TMMwsp")` | `rsem_normalize(method = "tmmwsp")`, equal to edgeR |
 
 ## What rsemverse does not copy
@@ -54,8 +56,6 @@ elsewhere, so rsemverse does not do them silently:
 
 ## Steps left out
 
-- **PCA and sample correlation.** They are results, not table preparation;
-  [rsemflow](https://daikikumakura.github.io/rsemflow/) writes them as tables.
 - **Matching samples to a reference atlas (for example GTEx).** Profiles from
   other studies and protocols differ for technical reasons, and no data set
   was at hand to validate such matching.

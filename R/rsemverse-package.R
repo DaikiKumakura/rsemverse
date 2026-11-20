@@ -13,7 +13,9 @@
 #'    `filterByExpr()` rule, detection thresholds) or keep the most variable.
 #' 3. [rsem_subset()] and [rsem_biotype_profile()]: keep or remove gene groups
 #'    taken from the OrgDb or from a GTF file (rRNA, snoRNA, lncRNA, ...),
-#'    and see what share of each sample they take.
+#'    and see what share of each sample they take. [rsem_mapping_qc()] reads
+#'    the read assignment statistics of the RSEM `.cnt` files, and
+#'    [rsem_sample_qc()] gives PCA, sample correlation and a per-sample summary.
 #' 4. [rsem_normalize()]: normalize between samples (CPM, TMM, TMMwsp, upper
 #'    quartile, DESeq2 median of ratios, quantile).
 #' 5. [rsem_transform()] and [rsem_fit_reference()] /

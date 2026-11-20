@@ -10,7 +10,9 @@ rsem_filter(
   method = NULL,
   min_value = NULL,
   min_samples = 0.2,
-  n_top = 2000
+  n_top = 2000,
+  group = NULL,
+  design = NULL
 )
 }
 \arguments{
@@ -32,6 +34,12 @@ reach \code{min_value}. A number below 1 is read as a proportion of the
 samples (\code{0.5} = half). Default 0.2.}
 
 \item{n_top}{For \code{"variable"}: how many genes to keep. Default 2000.}
+
+\item{group}{For \code{"edger"}: the group of each sample (a vector in the
+column order of \code{x}, or named by sample), as in \code{edgeR::filterByExpr()}.}
+
+\item{design}{For \code{"edger"}: a design matrix with one row per sample (in
+the column order of \code{x}) instead of \code{group}.}
 }
 \value{
 A data frame with the kept genes, in the same layout as \code{x}
@@ -50,7 +58,14 @@ A message reports the rule and how many genes were kept.
 kept when its count per million (CPM) reaches \verb{min_value / median library size * 1e6} in at least \emph{k} samples and its total count is at least 15.
 \emph{k} is the number of samples, or \code{10 + (n - 10) * 0.7} when there are more
 than 10. \code{min_value} is the count a gene needs in a sample of median size
-(default 10, the edgeR default).
+(default 10, the edgeR default). With \code{group}, \emph{k} is the size of the
+smallest group (then reduced in the same way when it is above 10), and
+with \code{design} it is \code{1 / max(hat(design))}, as in \code{filterByExpr()}. The
+groups only set how many samples a gene must be expressed in; genes are
+not chosen by comparing groups, so the filter stays independent of the
+later test. Without them, a study with 3 controls and 10 treated samples
+asks for expression in all 13, which can remove genes that only the
+smaller group expresses.
 \item \code{"detected"} (the default for TPM): a gene is kept when its value is at
 least \code{min_value} in at least \code{min_samples} samples. The defaults are
 TPM >= 1 or count >= 10, in at least 20\% of the samples (at least one

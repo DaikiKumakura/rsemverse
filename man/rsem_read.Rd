@@ -20,8 +20,9 @@ rsem_read(
 \item{metadata}{Path to the metadata CSV, or \code{NULL} to find the files in
 \code{data} (see Input).}
 
-\item{species}{\code{"human"} or \code{"mouse"}. Required. The function stops if the
-gene IDs are of the other species.}
+\item{species}{\code{"human"} or \code{"mouse"}. Required with \code{id = "symbol"}; the
+function stops if the gene IDs are of the other species. Not used with
+\code{id = "original"}, which works for any organism.}
 
 \item{expr}{\code{"count"} (\code{expected_count}), \code{"tpm"} (\code{TPM}), \code{"length"}
 (\code{effective_length}) or, for transcripts, \code{"isopct"} (\code{IsoPct}).
@@ -57,7 +58,7 @@ S2,S2.genes.results
 }\if{html}{\out{</div>}}
 
 With \code{metadata = NULL} the files are found instead: every
-\verb{*.genes.results} (or \verb{*.isoforms.results}) file under \code{data}, searched
+\verb{*.genes.results} (or \verb{*.isoforms.results}, with or without \code{.gz}) file under \code{data}, searched
 recursively. The sample ID is the file name without the suffix
 (\code{sample_from = "filename"}) or the name of the folder that holds the file
 (\code{sample_from = "parent_dir"}, for layouts such as \code{S1/rsem.genes.results}).
@@ -65,6 +66,9 @@ The files and the sample IDs found are printed, sorted by sample ID, and
 duplicated sample IDs stop the function rather than overwrite each other.
 Groups are never guessed from file names; give them in the sample table of
 \code{\link[=rsem_long]{rsem_long()}} or \code{\link[=rsem_fit_reference]{rsem_fit_reference()}}.
+
+Transcript files must give every transcript the same gene in all samples; a
+file from a different reference stops the function.
 
 Every file needs the column \code{gene_id} (\code{transcript_id} for transcripts) and
 the column \code{expr} selects; other columns are ignored. All files must
@@ -98,8 +102,14 @@ write them next to the values. Summing happens on the original scale,
 before any log transformation: \code{log2(1 + TPM_a + TPM_b)} is not the sum of
 \code{log2(1 + TPM_a)} and \code{log2(1 + TPM_b)}.
 
-With \code{id = "original"}, rows keep the \code{gene_id} of the file and no OrgDb is
-needed.
+With \code{id = "original"}, rows keep the \code{gene_id} of the file and no OrgDb or
+\code{species} is needed, so results for any organism or a de novo transcriptome
+can be read.
+
+Files made with \code{rsem-calculate-expression --append-names} have IDs such
+as \code{ENSG00000141510.18_TP53}; the version and the appended name are removed
+before the lookup, and rows without a symbol keep the full ID of the file.
+Files may be gzip-compressed (\verb{*.genes.results.gz}).
 
 Rows appear in the order in which they first occur in the files. Values are
 not rounded and TPM is not renormalized.

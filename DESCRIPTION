@@ -1,7 +1,7 @@
 Package: rsemverse
 Type: Package
 Title: From RSEM Results to Analysis-Ready Gene Tables
-Version: 0.3.0
+Version: 0.4.0
 Authors@R: person("Daiki", "Kumakura", role = c("aut", "cre"),
     email = "55353329+DaikiKumakura@users.noreply.github.com")
 Description: Turns RSEM '*.genes.results' and '*.isoforms.results' files
@@ -14,7 +14,9 @@ Description: Turns RSEM '*.genes.results' and '*.isoforms.results' files
     count of genes kept per threshold, most variable genes), reduced to gene
     groups (protein-coding, mitochondrial, ribosomal protein, hemoglobin,
     sex-chromosome, spike-in, and rRNA, snoRNA, lncRNA and other types from
-    a GTF file), normalized between samples (CPM, TMM, TMMwsp, upper
+    a GTF file, with their share per sample and the read assignment
+    statistics of the RSEM '.cnt' files), and summarized per sample (principal
+    components, sample correlation, detected genes), normalized between samples (CPM, TMM, TMMwsp, upper
     quartile, DESeq2 median of ratios, quantile), transformed (log2, z-score,
     ranks, z-scores against a fixed reference group), and returned as a long
     table with the sample information or written with gene IDs and types.

@@ -53,8 +53,25 @@
 }
 
 # The same layout as rsem_read(): a data frame with genes as row names.
-.as_table <- function(m) {
-  as.data.frame(m, check.names = FALSE, stringsAsFactors = FALSE)
+# `from` is the table the values came from: the gene IDs behind each row
+# (attr "gene_ids") and the transcript-to-gene table (attr "tx2gene") that
+# rsem_read() keeps are carried over for the rows that remain.
+.as_table <- function(m, from = NULL) {
+  res <- as.data.frame(m, check.names = FALSE, stringsAsFactors = FALSE)
+  if (is.null(from)) return(res)
+  g <- attr(from, "gene_ids", exact = TRUE)
+  if (is.data.frame(g)) {
+    g <- g[g$gene %in% rownames(res), , drop = FALSE]
+    rownames(g) <- NULL
+    attr(res, "gene_ids") <- g
+  }
+  tg <- attr(from, "tx2gene", exact = TRUE)
+  if (is.data.frame(tg)) {
+    tg <- tg[tg$transcript_id %in% rownames(res), , drop = FALSE]
+    rownames(tg) <- NULL
+    attr(res, "tx2gene") <- tg
+  }
+  res
 }
 
 .fmt <- function(n) {

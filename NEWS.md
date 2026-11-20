@@ -1,3 +1,53 @@
+# rsemverse 0.4.0
+
+Fixes found when checking the 0.3.0 functions against each other, and three
+additions.
+
+## Fixes
+
+* The gene IDs behind each row (`attr(x, "gene_ids")`) and the
+  transcript-to-gene table (`attr(x, "tx2gene")`) are now carried through
+  `rsem_filter()`, `rsem_subset()`, `rsem_normalize()`, `rsem_transform()`
+  and `rsem_apply_reference()`, for the rows that remain. Before, they were
+  dropped, so `rsem_write()` after a filter had no original IDs and GTF gene
+  types were matched by symbol only.
+* `rsem_read()` understands the IDs of `rsem-calculate-expression
+  --append-names` (`ENSG00000141510.18_TP53`): the version and the appended
+  name are removed before the symbol lookup. `_PAR_Y` IDs keep their ID as
+  before.
+* `rsem_read(id = "original")` no longer needs `species` and no longer checks
+  that the IDs are Ensembl IDs, so results for any organism or a de novo
+  transcriptome can be read.
+* Gzip-compressed result files (`*.genes.results.gz`) are found and read,
+  with a sample table or without, and without extra packages.
+* Transcript files whose gene differs for the same transcript between samples
+  (a different reference) now stop `rsem_read(level = "isoform")`.
+* `rsem_biotype_profile()` gives `NA` shares for a sample whose total is 0,
+  and takes `total` for the denominator, so rRNA or mitochondrial shares can
+  be reported against the unfiltered total; the documentation says that the
+  default denominator is the total of the genes in `x`.
+* README: the differential expression recipe no longer suggests rounding
+  expected counts as the route to DESeq2; a new section describes the
+  `tximport` route, the effective-length offset and the zero-length genes.
+* The tests that depended on the symbols of one org.Hs.eg.db release compute
+  their expectations from the installed release.
+
+## Additions
+
+* `rsem_filter(method = "edger", group = , design = )` sets the number of
+  samples a gene must be expressed in from the groups or the design, as
+  `edgeR::filterByExpr()` does (checked against edgeR 4.8.2 in the tests).
+* `rsem_sample_qc()` returns the PCA (scores, variance, loadings), the sample
+  correlation and distance matrices, and a per-sample summary (total,
+  detected genes, median correlation with the other samples). The PCA uses
+  the most variable genes and the correlation its own gene set; nothing is
+  flagged or removed. Equal to `stats::prcomp()` and `stats::cor()` in the
+  tests.
+* `rsem_mapping_qc()` reads the `.cnt` statistics files of RSEM: alignable,
+  unalignable and filtered fractions, unique-gene and multi-gene fractions of
+  the alignable reads, and alignments per read. It stops on files whose
+  totals do not add up.
+
 # rsemverse 0.3.0
 
 Steps that scripts starting from RSEM output often write by hand, done with
