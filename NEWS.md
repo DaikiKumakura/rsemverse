@@ -1,3 +1,45 @@
+# rsemverse 0.5.0
+
+Protection against comparing files that should not be compared, more of
+RSEM's own output, and a check that reports problems before reading.
+
+## Changes
+
+* `rsem_read()` checks that every gene-level file lists the same transcripts
+  for each gene (`transcript_id(s)`, compared as sets): files quantified
+  against different references now stop the function
+  (`validate_reference = TRUE`, the default; skipped when the column is
+  missing). Isoform files were already checked for the same gene per
+  transcript.
+* `rsem_read(allow_reorder = TRUE)` accepts files with the same IDs in a
+  different order and puts them in the order of the first file; the default
+  still stops, and the message says when only the order differs.
+* `rsem_read(id = "annotation", annotation = )` names rows by the `gene_name`
+  of a GTF file or data frame, also for IDs with the name that
+  `--append-names` appends (as in RefSeq-based references: `gene1000_TP53`).
+  An ID is shortened only to an ID that the annotation has, so underscores in
+  IDs or names are never cut at the wrong place. Rows without a name keep
+  their ID.
+* `rsem_read()` reads RSEM's posterior estimates: `expr = "pme_count"`,
+  `"pme_tpm"` (posterior means, which add up over rows like counts),
+  `"count_sd"`, `"tpm_ci_lower"` and `"tpm_ci_upper"` (these cannot be summed
+  and need `id = "original"` or `level = "isoform"`). A file without the
+  column says whether to use `--calc-pme` or `--calc-ci`.
+* `rsem_sample_qc()` stops when the table is already log2-transformed (the
+  history that `rsem_transform()` records now also survives `rsem_filter()`,
+  `rsem_subset()`, `rsem_normalize()` and the reference z-scores) instead of
+  transforming twice; use `transform = "none"`.
+* README: the differential expression section no longer allows the
+  length-offset shortcut because the isoform usage looks similar; the
+  tximport documentation names protocols without a gene-length bias, such as
+  3' tag RNA-seq, as the exception.
+
+## New function
+
+* `rsem_check()` reports problems in the RSEM files (columns, values, IDs,
+  zero effective lengths, the TPM total, IDs and transcripts that differ from
+  the first file) for all files at once, with a severity for each finding.
+
 # rsemverse 0.4.0
 
 Fixes found when checking the 0.3.0 functions against each other, and three

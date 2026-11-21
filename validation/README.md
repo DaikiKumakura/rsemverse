@@ -102,3 +102,18 @@ Windows, R 4.5.3, org.Hs.eg.db 3.22.0, edgeR 4.8.2.
 | Isoforms through `rsem_filter()` | 49,759 of 207,507 transcripts kept (TPM >= 1 in >= 2 samples), with the same 49,759 rows in `attr(x, "tx2gene")` |
 | `rsem_mapping_qc()` | not run on real data: the ENCODE downloads have no RSEM `.cnt` files. The tests use files written to the format in RSEM's `cnt_file_description.txt`, and a file whose totals do not add up stops the function |
 | `rsem_sample_qc()` on the filtered table (13,993 genes, 2,000 for the PCA) | PC1–PC5 explain 41.7, 32.8, 9.7, 8.1 and 7.7% of the variance of those genes; scores and loadings equal `stats::prcomp()` and the Spearman matrix equals `stats::cor()` (12,000+ detected genes); each sample's most similar sample is its own replicate (median correlation with the others 0.944–0.958) |
+
+## Changes in 0.5.0 (November 21, 2026, rsemverse 0.5.0)
+
+`encode-k562-0.5.0.R`, on the files that `encode-k562-0.3.R` downloaded.
+Windows, R 4.5.3, org.Hs.eg.db 3.22.0.
+
+| Check | Result |
+| --- | --- |
+| `rsem_check()` on the six gene files | no errors; one warning per file for genes with effective length 0 (5,956 or 5,908); no TPM total off 1e6 |
+| `rsem_check(level = "isoform")` on the six transcript files | only the zero-length warnings |
+| `rsem_read(validate_reference = TRUE)` | accepted the six files (the transcript lists of all 59,526 genes are equal) |
+| One gene given an extra transcript in one file | `rsem_read()` stopped, naming the file and the gene; `rsem_check()` reported one `reference_mismatch` error for that sample |
+| One file with its rows shuffled | stopped by default; with `allow_reorder = TRUE` the table equals the one from the original files |
+| `rsem_read(id = "annotation")` with the GENCODE V29 annotation | 57,938 rows from 59,526 genes (58,721 genes named); column sums equal to the OrgDb route. Of the 31,544 names present in both routes, 87 differ in value: the two sources name some genes differently, and GENCODE gives the `_PAR_Y` copies the name of the X copy, so they are summed (216 names merge several IDs, 45 of them `_PAR_Y` IDs) |
+| Posterior columns and `.cnt` files | not run on real data: the ENCODE downloads were made without `--calc-pme` and have no `.cnt` files. The tests use files written to RSEM's documented format |

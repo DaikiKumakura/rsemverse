@@ -209,7 +209,7 @@ test_that("extra columns in the RSEM files and the metadata are ignored", {
   ids <- c("ENSG00000141510.18", "ENSG00000111640.5")
   p <- make_dataset(values_matrix(ids))
   f <- file.path(p$data, "A.genes.results")
-  tab <- utils::read.delim(f, check.names = FALSE, colClasses = c(gene_id = "character"))
+  tab <- utils::read.delim(f, check.names = FALSE, colClasses = c(gene_id = "character", "transcript_id(s)" = "character"))
   tab$posterior_mean_count <- 1
   utils::write.table(tab, f, sep = "\t", quote = FALSE, row.names = FALSE)
   writeLines(c("sample_id,ref,group", "A,A.genes.results,x", "B,B.genes.results,y"), p$metadata)

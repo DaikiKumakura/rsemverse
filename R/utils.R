@@ -59,6 +59,8 @@
 .as_table <- function(m, from = NULL) {
   res <- as.data.frame(m, check.names = FALSE, stringsAsFactors = FALSE)
   if (is.null(from)) return(res)
+  tf <- attr(from, "transform", exact = TRUE)
+  if (!is.null(tf)) attr(res, "transform") <- tf
   g <- attr(from, "gene_ids", exact = TRUE)
   if (is.data.frame(g)) {
     g <- g[g$gene %in% rownames(res), , drop = FALSE]

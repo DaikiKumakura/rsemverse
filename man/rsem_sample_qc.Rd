@@ -91,7 +91,9 @@ in at least one sample;
 
 \itemize{
 \item \code{transform = "log2"} (the default) uses \code{log2(value + 1)}; \code{"none"} uses
-the values as they are (for values that are already on a log scale).
+the values as they are (for values that are already on a log scale). A
+table made with \code{\link[=rsem_transform]{rsem_transform()}} remembers that it is log2-transformed,
+and \code{transform = "log2"} then stops instead of transforming twice.
 Rank correlation does not depend on the transformation.
 \item The values are centred per gene before the PCA, but not scaled
 (\code{pca_scale = FALSE}): scaling gives every gene the same weight, so lowly

@@ -20,7 +20,9 @@
 #'
 #' @section Choices that are not made silently:
 #' * `transform = "log2"` (the default) uses `log2(value + 1)`; `"none"` uses
-#'   the values as they are (for values that are already on a log scale).
+#'   the values as they are (for values that are already on a log scale). A
+#'   table made with [rsem_transform()] remembers that it is log2-transformed,
+#'   and `transform = "log2"` then stops instead of transforming twice.
 #'   Rank correlation does not depend on the transformation.
 #' * The values are centred per gene before the PCA, but not scaled
 #'   (`pca_scale = FALSE`): scaling gives every gene the same weight, so lowly
@@ -81,6 +83,9 @@ rsem_sample_qc <- function(x, metadata = NULL, transform = "log2", pseudocount =
   n_top <- .number(n_top, "n_top", lower = 2, integer = TRUE)
   n_pcs <- .number(n_pcs, "n_pcs", lower = 1, integer = TRUE)
   if (!is.logical(pca_scale) || length(pca_scale) != 1L || is.na(pca_scale)) .stopf("`pca_scale` must be TRUE or FALSE.")
+  if (transform == "log2" && "log2" %in% attr(x, "transform", exact = TRUE)) {
+    .stopf("`x` is already log2-transformed (rsem_transform()); use transform = \"none\" so that it is not transformed twice.")
+  }
   m <- .expr_matrix(x, nonnegative = transform == "log2")
   n <- ncol(m)
   if (n < 3L) .stopf("rsem_sample_qc() needs at least three samples; `x` has %d.", n)

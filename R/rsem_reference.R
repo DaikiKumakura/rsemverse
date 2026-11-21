@@ -129,6 +129,7 @@ rsem_apply_reference <- function(x, reference, zero_sd = "na") {
     if (zero_sd == "na") "set to NA" else "removed", .fmt(dropped), .fmt(missing_ref)
   ))
   res <- .as_table(z, from = x)
+  attr(res, "transform") <- c(attr(x, "transform", exact = TRUE), if (reference$transform == "log2") "log2", "zscore")
   attr(res, "reference") <- reference
   res
 }

@@ -69,6 +69,39 @@
 #' Rows appear in the order in which they first occur in the files. Values are
 #' not rounded and TPM is not renormalized.
 #'
+#' @section Names from an annotation file:
+#' RefSeq-based references have IDs such as `gene1000`, which say nothing
+#' about the gene; `rsem-calculate-expression --append-names` appends the name
+#' (`gene1000_TP53`). With `id = "annotation"` and the GTF of the reference
+#' (or a data frame), each row is named by the `gene_name` of its `gene_id`.
+#' A file ID is matched to the annotation as it is, without its Ensembl
+#' version, or after trailing `_...` parts are removed one at a time; a
+#' shortened ID counts only if the annotation has exactly that `gene_id`, so
+#' underscores inside IDs or names are not cut. Rows that match nothing, or
+#' have no name, keep their ID. Rows with the same name are summed, as for
+#' symbols (this includes the `_PAR_Y` copies of pseudoautosomal genes in
+#' GENCODE, which the OrgDb route keeps under their IDs), and
+#' `attr(x, "gene_ids")` keeps the original IDs. Names from an annotation and
+#' from the OrgDb can differ for some genes.
+#'
+#' @section Checks on the files:
+#' Every file must list the same genes (transcripts) as the first, in the same
+#' order, and, with `validate_reference`, the same transcripts for each gene
+#' (gene-level files) or the same gene for each transcript (isoform files):
+#' the same gene ID with a different set of transcripts means the files were
+#' quantified against different references, and their values are not
+#' comparable. [rsem_check()] reports such problems for all files at once
+#' instead of stopping at the first.
+#'
+#' @section Posterior estimates:
+#' With `--calc-pme` or `--calc-ci`, RSEM adds posterior means, their standard
+#' deviation and 95% credibility intervals. `"pme_count"` and `"pme_tpm"` are
+#' posterior means and add up over rows like counts. The standard deviation
+#' and the interval bounds do not add up (the interval of a sum is not the sum
+#' of the intervals), so they need `id = "original"` or `level = "isoform"`
+#' and are never merged. A file without the column stops with the option to
+#' use.
+#'
 #' @section Effective length:
 #' `expr = "length"` reads `effective_length`. RSEM sets it to 0 for a
 #' transcript shorter than the mean fragment length, and the gene-level value
@@ -96,11 +129,27 @@
 #'   function stops if the gene IDs are of the other species. Not used with
 #'   `id = "original"`, which works for any organism.
 #' @param expr `"count"` (`expected_count`), `"tpm"` (`TPM`), `"length"`
-#'   (`effective_length`) or, for transcripts, `"isopct"` (`IsoPct`).
-#'   Required.
+#'   (`effective_length`) or, for transcripts, `"isopct"` (`IsoPct`); with
+#'   `--calc-pme` or `--calc-ci` also the posterior values `"pme_count"`
+#'   (`posterior_mean_count`), `"pme_tpm"` (`pme_TPM`), `"count_sd"`
+#'   (`posterior_standard_deviation_of_count`), `"tpm_ci_lower"` and
+#'   `"tpm_ci_upper"` (the 95% credibility interval of the TPM). See
+#'   Posterior estimates. Required.
 #' @param level `"gene"` (`*.genes.results`, the default) or `"isoform"`
 #'   (`*.isoforms.results`).
-#' @param id `"symbol"` (the default) or `"original"` (the IDs of the file).
+#' @param id `"symbol"` (the default), `"original"` (the IDs of the file) or
+#'   `"annotation"` (names from `annotation`).
+#' @param validate_reference Check that every file lists the same transcripts
+#'   for each gene (the column `transcript_id(s)`), as set; files made with
+#'   different references stop the function. Default `TRUE`; skipped when the
+#'   column is missing.
+#' @param allow_reorder Accept files that have the same IDs in a different
+#'   order, and put them in the order of the first file. Default `FALSE`: a
+#'   different order stops the function, because it usually means the files do
+#'   not belong together.
+#' @param annotation With `id = "annotation"`: a GTF file or a data frame with
+#'   the columns `gene_id` and `gene_name`, as in [rsem_biotype_profile()]; for
+#'   a RefSeq GFF3 reference, the GTF that `rsem-prepare-reference` writes.
 #' @param sample_from With `metadata = NULL`: `"filename"` (the default) or
 #'   `"parent_dir"`.
 #'
@@ -124,24 +173,42 @@
 #' }
 #' @export
 rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
-                      level = "gene", id = "symbol", sample_from = "filename") {
-  id <- .choice(id, c("symbol", "original"), "id")
+                      level = "gene", id = "symbol", sample_from = "filename",
+                      validate_reference = TRUE, allow_reorder = FALSE, annotation = NULL) {
+  id <- .choice(id, c("symbol", "original", "annotation"), "id")
   if (id == "symbol" && missing(species)) .stopf("`species` must be \"human\" or \"mouse\".")
-  if (missing(expr)) .stopf("`expr` must be \"count\", \"tpm\", \"length\" or (for transcripts) \"isopct\".")
-  # with the IDs of the files, no annotation package is used and any organism works
-  species <- if (id == "original") NULL else .choice(species, c("human", "mouse"), "species")
+  if (missing(expr)) .stopf("`expr` must be one of: %s.", paste(sprintf("\"%s\"", .read_exprs), collapse = ", "))
+  # with the IDs of the files or an annotation file, no annotation package is
+  # used and any organism works
+  species <- if (id != "symbol") NULL else .choice(species, c("human", "mouse"), "species")
   level <- .choice(level, c("gene", "isoform"), "level")
-  expr <- .choice(expr, c("count", "tpm", "length", if (level == "isoform") "isopct"), "expr")
-  column <- c(count = "expected_count", tpm = "TPM", length = "effective_length", isopct = "IsoPct")[[expr]]
+  expr <- .choice(expr, c(setdiff(.read_exprs, "isopct"), if (level == "isoform") "isopct"), "expr")
+  column <- .read_columns[[expr]]
+  if (!is.logical(validate_reference) || length(validate_reference) != 1L || is.na(validate_reference)) .stopf("`validate_reference` must be TRUE or FALSE.")
+  if (!is.logical(allow_reorder) || length(allow_reorder) != 1L || is.na(allow_reorder)) .stopf("`allow_reorder` must be TRUE or FALSE.")
+  if (id == "annotation" && is.null(annotation)) .stopf("id = \"annotation\" needs `annotation`: a GTF file or a data frame with gene_id and gene_name.")
+  if (id != "annotation" && !is.null(annotation)) .stopf("`annotation` is used with id = \"annotation\" only.")
+  if (expr %in% .not_additive && id != "original" && level == "gene") {
+    .stopf("expr = \"%s\" cannot be summed over rows that share a name; use id = \"original\" (or level = \"isoform\").", expr)
+  }
 
   samples <- if (is.null(metadata)) {
     .discover_samples(data, level, .choice(sample_from, c("filename", "parent_dir"), "sample_from"))
   } else {
     .read_samples(data, metadata)
   }
-  if (level == "isoform") return(.read_isoforms(samples, column, species, id, expr))
+  if (expr %in% .posterior_exprs && !column %in% .rsem_header(samples$path[[1L]])) {
+    .stopf(
+      "%s has no column '%s'; run rsem-calculate-expression with %s.", samples$ref[[1L]], column,
+      if (expr %in% .not_additive && expr != "count_sd") "--calc-ci" else "--calc-pme or --calc-ci"
+    )
+  }
+  ann <- if (id == "annotation") .read_annotation(annotation, need_type = FALSE) else NULL
+  if (level == "isoform") return(.read_isoforms(samples, column, species, id, expr, ann, allow_reorder))
 
-  mat <- .read_matrix(samples, column)
+  tx_col <- "transcript_id(s)"
+  check_tx <- validate_reference && tx_col %in% .rsem_header(samples$path[[1L]])
+  mat <- .read_matrix(samples, column, allow_reorder = allow_reorder, also = if (check_tx) tx_col, also_set = TRUE)
   stable <- .strip_ensembl_version(rownames(mat))
   if (id == "symbol") .check_species(stable, species)
   zero_note <- ""
@@ -165,10 +232,16 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
     return(res)
   }
 
-  orgdb <- .orgdb_package(species)
-  symbol <- .lookup_symbols(stable, orgdb)
+  if (id == "annotation") {
+    symbol <- .names_from_annotation(rownames(mat), ann)
+    source <- "annotation file"
+  } else {
+    orgdb <- .orgdb_package(species)
+    symbol <- .lookup_symbols(stable, orgdb)
+    source <- sprintf("%s %s", orgdb, as.character(utils::packageVersion(orgdb)))
+  }
   out <- if (expr == "length") {
-    .weighted_length_by_symbol(mat, .read_matrix(samples, "TPM"), symbol)
+    .weighted_length_by_symbol(mat, .read_matrix(samples, "TPM", allow_reorder = allow_reorder), symbol)
   } else {
     .sum_by_symbol(mat, symbol)
   }
@@ -176,12 +249,11 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   has_symbol <- !is.na(symbol)
   message(sprintf(
     paste0(
-      "rsem_read: %d samples, %d genes -> %d rows (species = %s, expr = %s, %s %s)\n",
+      "rsem_read: %d samples, %d genes -> %d rows (%sexpr = %s, %s)\n",
       "  with symbol: %d genes (%d symbols merged from several IDs); ",
       "kept as original IDs: %d genes%s"
     ),
-    ncol(mat), nrow(mat), nrow(out), species, expr, orgdb,
-    as.character(utils::packageVersion(orgdb)),
+    ncol(mat), nrow(mat), nrow(out), if (is.null(species)) "" else paste0("species = ", species, ", "), expr, source,
     sum(has_symbol), sum(table(symbol[has_symbol]) > 1L), sum(!has_symbol), zero_note
   ))
 
@@ -192,6 +264,40 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   )
   if (!is.null(zl)) attr(res, "zero_length") <- zl
   res
+}
+
+# What rsem_read() can return, and the RSEM column each value comes from. The
+# posterior columns exist only with --calc-pme or --calc-ci; posterior means
+# (like counts and TPM) add up over rows, standard deviations and interval
+# bounds do not.
+.read_columns <- list(
+  count = "expected_count", tpm = "TPM", length = "effective_length", isopct = "IsoPct",
+  pme_count = "posterior_mean_count", pme_tpm = "pme_TPM", count_sd = "posterior_standard_deviation_of_count",
+  tpm_ci_lower = "TPM_ci_lower_bound", tpm_ci_upper = "TPM_ci_upper_bound"
+)
+.read_exprs <- names(.read_columns)
+.posterior_exprs <- c("pme_count", "pme_tpm", "count_sd", "tpm_ci_lower", "tpm_ci_upper")
+.not_additive <- c("count_sd", "tpm_ci_lower", "tpm_ci_upper")
+
+# Name of each row from an annotation (gene_id -> gene_name). A file ID matches
+# the annotation exactly or after its Ensembl version is dropped; failing that,
+# trailing `_...` parts (the name that --append-names adds) are removed one by
+# one, and a shortened ID counts only if the annotation has that gene_id, so IDs
+# or names that contain underscores are never cut at the wrong place.
+.names_from_annotation <- function(ids, ann) {
+  ann <- ann[!is.na(ann$gene_name) & nzchar(ann$gene_name), , drop = FALSE]
+  ann <- ann[!duplicated(ann$gene_id), , drop = FALSE]
+  key <- rep(NA_character_, length(ids))
+  cur <- ids
+  for (i in 0:8) {
+    stripped <- .strip_ensembl_version(cur)
+    use_cur <- cur %in% ann$gene_id
+    use_str <- !use_cur & stripped %in% ann$gene_id
+    hit <- is.na(key) & (use_cur | use_str)
+    key[hit] <- ifelse(use_cur[hit], cur[hit], stripped[hit])
+    cur <- ifelse(is.na(key) & grepl("_", cur, fixed = TRUE), sub("_[^_]*$", "", cur), cur)
+  }
+  ann$gene_name[match(key, ann$gene_id)]
 }
 
 .stopf <- function(fmt, ...) {
@@ -339,7 +445,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
 
 # `also`: a second ID column that must be the same in every file (the gene of
 # each transcript), checked against the first file.
-.read_matrix <- function(samples, column, key = "gene_id", also = NULL) {
+.read_matrix <- function(samples, column, key = "gene_id", also = NULL, allow_reorder = FALSE, also_set = FALSE) {
   required <- c(key, column, also)
   row_id <- NULL
   also_id <- NULL
@@ -366,19 +472,34 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
         dimnames = list(row_id, samples$sample_id)
       )
     } else if (!identical(x[[key]], row_id)) {
-      .stopf(
-        "%s does not have the same %s in the same order as %s.",
-        label, if (key == "gene_id") "genes" else "transcripts", samples$ref[[1]]
-      )
+      if (allow_reorder && setequal(x[[key]], row_id)) {
+        x <- x[match(row_id, x[[key]]), , drop = FALSE]
+      } else {
+        .stopf(
+          "%s does not have the same %s in the same order as %s%s.",
+          label, if (key == "gene_id") "genes" else "transcripts", samples$ref[[1]],
+          if (setequal(x[[key]], row_id)) " (the same IDs in a different order; allow_reorder = TRUE accepts this)" else ""
+        )
+      }
     }
     if (!is.null(also)) {
       if (is.null(also_id)) {
         also_id <- x[[also]]
       } else if (!identical(x[[also]], also_id)) {
-        .stopf(
-          "%s has a different %s for some %s than %s (the files come from different references).",
-          label, also, key, samples$ref[[1]]
-        )
+        same <- if (also_set) {
+          canon <- function(v) vapply(strsplit(v, ",", fixed = TRUE), function(z) paste(sort(z), collapse = ","), character(1))
+          diff <- which(x[[also]] != also_id)
+          canon(x[[also]][diff]) == canon(also_id[diff])
+        } else {
+          FALSE
+        }
+        if (!all(same)) {
+          bad <- if (also_set) which(x[[also]] != also_id)[!same] else which(x[[also]] != also_id)
+          .stopf(
+            "%s has a different %s for %s %s than %s (e.g. %s): the files come from different references; `validate_reference = FALSE` skips this check.",
+            label, also, .fmt(length(bad)), if (key == "gene_id") "genes" else "transcripts", samples$ref[[1]], x[[key]][bad[[1L]]]
+          )
+        }
       }
     }
     mat[, i] <- x[[column]]
@@ -464,8 +585,8 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   out
 }
 
-.read_isoforms <- function(samples, column, species, id, expr) {
-  mat <- .read_matrix(samples, column, key = "transcript_id", also = "gene_id")
+.read_isoforms <- function(samples, column, species, id, expr, ann = NULL, allow_reorder = FALSE) {
+  mat <- .read_matrix(samples, column, key = "transcript_id", also = "gene_id", allow_reorder = allow_reorder)
   g <- .fread_rsem(samples$path[[1]], select = c("transcript_id", "gene_id"), colClasses = "character")
   if (!identical(g$transcript_id, rownames(mat))) .stopf("Internal error: transcript order changed.")
   stable <- .strip_ensembl_version(g$gene_id)
@@ -474,11 +595,14 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   if (id == "symbol") {
     s <- .lookup_symbols(stable, .orgdb_package(species))
     gene <- ifelse(is.na(s), g$gene_id, s)
+  } else if (id == "annotation") {
+    s <- .names_from_annotation(g$gene_id, ann)
+    gene <- ifelse(is.na(s), g$gene_id, s)
   }
   message(sprintf(
     "rsem_read: %d samples, %s transcripts of %s genes (%sexpr = %s, level = isoform)",
     ncol(mat), .fmt(nrow(mat)), .fmt(length(unique(g$gene_id))),
-    if (is.null(species)) "original IDs, " else paste0("species = ", species, ", "), expr
+    if (is.null(species)) paste0(if (id == "annotation") "names from the annotation file" else "original IDs", ", ") else paste0("species = ", species, ", "), expr
   ))
   res <- as.data.frame(mat, check.names = FALSE)
   attr(res, "tx2gene") <- data.frame(

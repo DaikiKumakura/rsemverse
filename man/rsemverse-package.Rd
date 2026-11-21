@@ -14,8 +14,9 @@ so the steps chain in any order, and each prints what it did.
 \section{Workflow}{
 
 \enumerate{
-\item \code{\link[=rsem_read]{rsem_read()}}: read counts, TPM or effective lengths into a gene symbol
-by sample table; find the files without a sample table if wanted.
+\item \code{\link[=rsem_check]{rsem_check()}} and \code{\link[=rsem_read]{rsem_read()}}: check the files, then read counts, TPM,
+effective lengths or posterior estimates into a gene symbol by sample
+table; find the files without a sample table if wanted.
 \item \code{\link[=rsem_detection_curve]{rsem_detection_curve()}} and \code{\link[=rsem_filter]{rsem_filter()}}: see how many genes each
 detection threshold keeps, then remove lowly expressed genes (edgeR
 \code{filterByExpr()} rule, detection thresholds) or keep the most variable.

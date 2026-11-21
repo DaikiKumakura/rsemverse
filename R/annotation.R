@@ -16,12 +16,13 @@
 
 # Gene rows of a GTF as a data frame (gene_id without version, gene_name,
 # gene_type). `annotation` may also be a data frame with these columns.
-.read_annotation <- function(annotation) {
+.read_annotation <- function(annotation, need_type = TRUE) {
   if (is.data.frame(annotation)) {
     a <- as.data.frame(annotation, stringsAsFactors = FALSE)
-    need <- c("gene_id", "gene_type")
-    if (!all(need %in% names(a))) .stopf("An annotation data frame needs the columns gene_id and gene_type (gene_name is optional).")
+    need <- c("gene_id", if (need_type) "gene_type")
+    if (!all(need %in% names(a))) .stopf("An annotation data frame needs the columns gene_id and %s (gene_name is optional).", if (need_type) "gene_type" else "gene_name")
     if (!"gene_name" %in% names(a)) a$gene_name <- NA_character_
+    if (!"gene_type" %in% names(a)) a$gene_type <- NA_character_
     a <- a[, c("gene_id", "gene_name", "gene_type")]
   } else if (is.character(annotation) && length(annotation) == 1L && !is.na(annotation)) {
     if (!file.exists(annotation) || dir.exists(annotation)) .stopf("`annotation` must be an existing GTF file: %s", annotation)
@@ -47,7 +48,7 @@
       gene_id = field("gene_id"), gene_name = field(c("gene_name", "gene")),
       gene_type = field(c("gene_type", "gene_biotype")), stringsAsFactors = FALSE
     )
-    if (all(is.na(a$gene_type))) .stopf("The GTF file has no gene_type or gene_biotype attribute.")
+    if (need_type && all(is.na(a$gene_type))) .stopf("The GTF file has no gene_type or gene_biotype attribute.")
   } else {
     .stopf("`annotation` must be a path to a GTF file or a data frame.")
   }

@@ -11,7 +11,10 @@ rsem_read(
   expr,
   level = "gene",
   id = "symbol",
-  sample_from = "filename"
+  sample_from = "filename",
+  validate_reference = TRUE,
+  allow_reorder = FALSE,
+  annotation = NULL
 )
 }
 \arguments{
@@ -25,16 +28,35 @@ function stops if the gene IDs are of the other species. Not used with
 \code{id = "original"}, which works for any organism.}
 
 \item{expr}{\code{"count"} (\code{expected_count}), \code{"tpm"} (\code{TPM}), \code{"length"}
-(\code{effective_length}) or, for transcripts, \code{"isopct"} (\code{IsoPct}).
-Required.}
+(\code{effective_length}) or, for transcripts, \code{"isopct"} (\code{IsoPct}); with
+\code{--calc-pme} or \code{--calc-ci} also the posterior values \code{"pme_count"}
+(\code{posterior_mean_count}), \code{"pme_tpm"} (\code{pme_TPM}), \code{"count_sd"}
+(\code{posterior_standard_deviation_of_count}), \code{"tpm_ci_lower"} and
+\code{"tpm_ci_upper"} (the 95\% credibility interval of the TPM). See
+Posterior estimates. Required.}
 
 \item{level}{\code{"gene"} (\verb{*.genes.results}, the default) or \code{"isoform"}
 (\verb{*.isoforms.results}).}
 
-\item{id}{\code{"symbol"} (the default) or \code{"original"} (the IDs of the file).}
+\item{id}{\code{"symbol"} (the default), \code{"original"} (the IDs of the file) or
+\code{"annotation"} (names from \code{annotation}).}
 
 \item{sample_from}{With \code{metadata = NULL}: \code{"filename"} (the default) or
 \code{"parent_dir"}.}
+
+\item{validate_reference}{Check that every file lists the same transcripts
+for each gene (the column \code{transcript_id(s)}), as set; files made with
+different references stop the function. Default \code{TRUE}; skipped when the
+column is missing.}
+
+\item{allow_reorder}{Accept files that have the same IDs in a different
+order, and put them in the order of the first file. Default \code{FALSE}: a
+different order stops the function, because it usually means the files do
+not belong together.}
+
+\item{annotation}{With \code{id = "annotation"}: a GTF file or a data frame with
+the columns \code{gene_id} and \code{gene_name}, as in \code{\link[=rsem_biotype_profile]{rsem_biotype_profile()}}; for
+a RefSeq GFF3 reference, the GTF that \code{rsem-prepare-reference} writes.}
 }
 \value{
 A data frame with one row per gene symbol (or gene ID, or
@@ -113,6 +135,45 @@ Files may be gzip-compressed (\verb{*.genes.results.gz}).
 
 Rows appear in the order in which they first occur in the files. Values are
 not rounded and TPM is not renormalized.
+}
+
+\section{Names from an annotation file}{
+
+RefSeq-based references have IDs such as \code{gene1000}, which say nothing
+about the gene; \code{rsem-calculate-expression --append-names} appends the name
+(\code{gene1000_TP53}). With \code{id = "annotation"} and the GTF of the reference
+(or a data frame), each row is named by the \code{gene_name} of its \code{gene_id}.
+A file ID is matched to the annotation as it is, without its Ensembl
+version, or after trailing \verb{_...} parts are removed one at a time; a
+shortened ID counts only if the annotation has exactly that \code{gene_id}, so
+underscores inside IDs or names are not cut. Rows that match nothing, or
+have no name, keep their ID. Rows with the same name are summed, as for
+symbols (this includes the \verb{_PAR_Y} copies of pseudoautosomal genes in
+GENCODE, which the OrgDb route keeps under their IDs), and
+\code{attr(x, "gene_ids")} keeps the original IDs. Names from an annotation and
+from the OrgDb can differ for some genes.
+}
+
+\section{Checks on the files}{
+
+Every file must list the same genes (transcripts) as the first, in the same
+order, and, with \code{validate_reference}, the same transcripts for each gene
+(gene-level files) or the same gene for each transcript (isoform files):
+the same gene ID with a different set of transcripts means the files were
+quantified against different references, and their values are not
+comparable. \code{\link[=rsem_check]{rsem_check()}} reports such problems for all files at once
+instead of stopping at the first.
+}
+
+\section{Posterior estimates}{
+
+With \code{--calc-pme} or \code{--calc-ci}, RSEM adds posterior means, their standard
+deviation and 95\% credibility intervals. \code{"pme_count"} and \code{"pme_tpm"} are
+posterior means and add up over rows like counts. The standard deviation
+and the interval bounds do not add up (the interval of a sum is not the sum
+of the intervals), so they need \code{id = "original"} or \code{level = "isoform"}
+and are never merged. A file without the column stops with the option to
+use.
 }
 
 \section{Effective length}{

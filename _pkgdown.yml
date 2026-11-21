@@ -30,6 +30,7 @@ reference:
     contents:
       - rsem_subset
       - rsem_biotype_profile
+      - rsem_check
       - rsem_mapping_qc
       - rsem_sample_qc
   - title: "Step 4: Normalize"

@@ -37,6 +37,7 @@ same table and returns the same table, so the steps chain in any order.
           rsem_filter()            remove lowly expressed genes
           rsem_subset()            keep or remove gene groups (OrgDb or GTF)
           rsem_biotype_profile()   share of rRNA, lncRNA, … in each sample
+          rsem_check()             problems in the RSEM files, all at once, before reading
           rsem_mapping_qc()        alignable, filtered, unique-gene reads from the .cnt files
           rsem_sample_qc()         PCA, sample correlation, detected genes per sample
           rsem_normalize()         normalize between samples
@@ -55,12 +56,13 @@ Effective lengths: `rsem_read(expr = "length")` and `rsem_length_profile()`.
 
 | Step | Function | Choices (default first) |
 |---|---|---|
-| Read | `rsem_read()` | `expr = "count"`, `"tpm"`, `"length"` (`"isopct"` for transcripts); `species = "human"` or `"mouse"`; `metadata = NULL` finds the files (`.gz` too); `id = "original"` for any organism; `--append-names` IDs are understood |
+| Read | `rsem_read()` | `expr = "count"`, `"tpm"`, `"length"` (`"isopct"` for transcripts); `species = "human"` or `"mouse"`; `metadata = NULL` finds the files (`.gz` too); `id = "original"` for any organism; `id = "annotation"` takes names from a GTF; `--append-names` IDs are understood; `"pme_count"`, `"pme_tpm"`, `"count_sd"`, `"tpm_ci_lower"`, `"tpm_ci_upper"` for `--calc-pme` and `--calc-ci` output |
 | Thresholds | `rsem_detection_curve()` | thresholds × number or share of samples |
 | Filter | `rsem_filter()` | `"edger"` (counts) / `"detected"` (TPM), `"nonzero"`, `"variable"` |
 | Select genes | `rsem_subset()` | `"protein_coding"`, `"mito"`, `"ribo"`, `"hb"`, `"sex"`, `"ercc"`; with a GTF also `"rrna"`, `"mito_rrna"`, `"mito_trna"`, `"snorna"`, `"snrna"`, `"mirna"`, `"lncrna"` |
 | Gene types | `rsem_biotype_profile()` | share of each gene type of a GTF per sample; `total =` for the unfiltered denominator |
 | Sample QC | `rsem_sample_qc()` | PCA on the most variable genes, sample correlation (`"spearman"`, `"pearson"`, `"kendall"`) on detected, all or variable genes, per-sample summary |
+| Check files | `rsem_check()` | errors, warnings and notes about the files: columns, values, IDs, zero lengths, different references |
 | Read statistics | `rsem_mapping_qc()` | alignable, unalignable, filtered, unique-gene and multi-gene fractions from `.cnt` files |
 | Normalize | `rsem_normalize()` | `"cpm"`, `"tmm"`, `"tmmwsp"`, `"upper_quartile"`, `"deseq2"`, `"quantile"` |
 | Transform | `rsem_transform()` | `"log2"`, `"zscore"`, `"center"`, `"rank"` |
@@ -156,6 +158,16 @@ share a symbol are summed, never reduced to their maximum, and on the
 original scale, before any log. The IDs behind each row stay in
 `attr(x, "gene_ids")`. It stops with a message when files are missing, genes
 differ between files, or the species does not match.
+
+For RefSeq-based references, whose IDs (`gene1000`) say little,
+`id = "annotation", annotation = "reference.gtf"` names the rows by the
+`gene_name` of the annotation, also for IDs that carry the name that
+`--append-names` appends; an ID is shortened only to an ID the annotation
+has, so underscores in IDs or names are safe. Posterior estimates written by
+`--calc-pme` or `--calc-ci` are read with `expr = "pme_count"`, `"pme_tpm"`,
+`"count_sd"`, `"tpm_ci_lower"` and `"tpm_ci_upper"`; the posterior means add
+up like counts, while standard deviations and credibility bounds need
+`id = "original"` because they cannot be summed.
 
 `expr = "length"` reads the effective lengths and reports genes whose length
 is 0: RSEM gives 0 to transcripts shorter than the mean fragment length, and
@@ -276,6 +288,20 @@ ggplot2::ggplot(subset(long, gene == "TP53"), ggplot2::aes(group, value)) +
   ggplot2::geom_boxplot()
 ```
 
+### Check the files: `rsem_check()`
+
+Before reading a new data set, `rsem_check("rsem")` lists every problem in the
+files at once instead of stopping at the first: missing columns, non-numeric,
+missing, infinite or negative values, duplicated IDs, genes with effective
+length 0, a TPM total that is not 1e6, and, compared with the first file, IDs
+that are missing, in another order, or listed with a different set of
+transcripts (files quantified against different references). Each finding has
+a severity (`ERROR`, `WARNING`, `INFO`), the sample, the number of rows and a
+description. `rsem_read()` itself stops on the same errors, and its
+`validate_reference = TRUE` (the default) checks the `transcript_id(s)` column
+of gene-level files as sets; `allow_reorder = TRUE` accepts files with the same
+IDs in another order.
+
 ### Sample QC: `rsem_sample_qc()`
 
 Returns the tables behind a first look at the samples: principal components
@@ -355,10 +381,12 @@ RSEM's expected counts are not integer counts of a fixed gene length: a
 gene's effective length differs between samples when the isoform usage or the
 fragment length distribution differs. DESeq2 and edgeR can model this with a
 length offset, which `tximport` supplies. Rounding `rsem_read(expr = "count")`
-and passing it to DESeq2 ignores the offset; it is a shortcut that is
-acceptable only when the isoform usage is similar across groups. The route
-described in the tximport and DESeq2 documentation reads the RSEM files
-directly:
+and passing it to DESeq2 ignores the offset, and the tximport documentation
+does not recommend using the estimated counts without it; the exceptions it
+names are protocols whose counts do not depend on gene length, such as 3' tag
+RNA-seq, so the choice rests on the library preparation and the model, not on
+how similar the isoform usage looks. The route described in the tximport and
+DESeq2 documentation reads the RSEM files directly:
 
 ```r
 library(tximport)

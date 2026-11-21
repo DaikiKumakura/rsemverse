@@ -31,6 +31,8 @@ often they are used.
 | Z-scores against control samples | Scripts that compute each gene's mean and SD in controls | `rsem_fit_reference()` and `rsem_apply_reference()`: fit once, apply to any samples |
 | PCA and sample correlation on the expression table | EuchroGene [TPM_PCA_Correlation](https://github.com/euchrogene/TPM_PCA_Correlation), quadbio [RNAseq_tutorial](https://github.com/quadbio/RNAseq_tutorial) | `rsem_sample_qc()`: PCA on the most variable genes, correlation on its own gene set, results as tables checked against `prcomp()` and `cor()` |
 | Alignment statistics of the `.cnt` files | [RNASeqPipelineR](https://github.com/RGLab/RNASeqPipelineR), [MultiQC RSEM module](https://docs.seqera.io/multiqc/modules/rsem) | `rsem_mapping_qc()`: the fractions as a table, files whose totals do not add up are refused |
+| Check that all files come from one reference, have the same genes and finite values | ad hoc `all(ids == ids[[1]])` tests in merging scripts | `rsem_check()` lists every problem at once; `rsem_read()` stops on them and compares the transcripts of each gene |
+| Name RefSeq genes (`gene1000`) from the reference annotation | joins against the GTF of the reference | `rsem_read(id = "annotation", annotation = gtf)` |
 | TMMwsp factors | `edgeR::calcNormFactors(method = "TMMwsp")` | `rsem_normalize(method = "tmmwsp")`, equal to edgeR |
 
 ## What rsemverse does not copy
