@@ -74,10 +74,12 @@
 #' about the gene; `rsem-calculate-expression --append-names` appends the name
 #' (`gene1000_TP53`). With `id = "annotation"` and the GTF of the reference
 #' (or a data frame), each row is named by the `gene_name` of its `gene_id`.
-#' A file ID is matched to the annotation as it is, without its Ensembl
-#' version, or after trailing `_...` parts are removed one at a time; a
-#' shortened ID counts only if the annotation has exactly that `gene_id`, so
-#' underscores inside IDs or names are not cut. Rows that match nothing, or
+#' A file ID is matched to the annotation as it is, or without its Ensembl
+#' version, or as `<gene_id>_<gene_name>` (the form `--append-names` writes):
+#' the part before an underscore must be a `gene_id` of the annotation and the
+#' part after it exactly that gene's `gene_name`. An ID such as `gene1_2` is
+#' therefore not taken for `gene1`, and underscores inside IDs or names are
+#' not cut at the wrong place. Rows that match nothing, or
 #' have no name, keep their ID. Rows with the same name are summed, as for
 #' symbols (this includes the `_PAR_Y` copies of pseudoautosomal genes in
 #' GENCODE, which the OrgDb route keeps under their IDs), and
@@ -280,22 +282,33 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
 .not_additive <- c("count_sd", "tpm_ci_lower", "tpm_ci_upper")
 
 # Name of each row from an annotation (gene_id -> gene_name). A file ID matches
-# the annotation exactly or after its Ensembl version is dropped; failing that,
-# trailing `_...` parts (the name that --append-names adds) are removed one by
-# one, and a shortened ID counts only if the annotation has that gene_id, so IDs
-# or names that contain underscores are never cut at the wrong place.
+# the annotation exactly or after its Ensembl version is dropped. An ID with
+# the name that `rsem-calculate-expression --append-names` adds (`<gene_id>_<
+# gene_name>`) is accepted only when the part after some `_` is exactly the
+# gene_name of the gene whose gene_id is the part before it; so `gene1_2` is
+# not read as the gene `gene1` just because that gene exists, and underscores
+# inside IDs or names are never cut at the wrong place.
 .names_from_annotation <- function(ids, ann) {
   ann <- ann[!is.na(ann$gene_name) & nzchar(ann$gene_name), , drop = FALSE]
   ann <- ann[!duplicated(ann$gene_id), , drop = FALSE]
+  drop_version <- function(x) sub("^(ENS[A-Z]*G[0-9]+)\\.[0-9]+$", "\\1", x)
   key <- rep(NA_character_, length(ids))
-  cur <- ids
-  for (i in 0:8) {
-    stripped <- .strip_ensembl_version(cur)
-    use_cur <- cur %in% ann$gene_id
-    use_str <- !use_cur & stripped %in% ann$gene_id
-    hit <- is.na(key) & (use_cur | use_str)
-    key[hit] <- ifelse(use_cur[hit], cur[hit], stripped[hit])
-    cur <- ifelse(is.na(key) & grepl("_", cur, fixed = TRUE), sub("_[^_]*$", "", cur), cur)
+  exact <- ids %in% ann$gene_id
+  key[exact] <- ids[exact]
+  plain <- is.na(key) & drop_version(ids) %in% ann$gene_id
+  key[plain] <- drop_version(ids[plain])
+  name_of <- stats::setNames(ann$gene_name, ann$gene_id)
+  for (i in which(is.na(key) & grepl("_", ids, fixed = TRUE))) {
+    for (p in gregexpr("_", ids[[i]], fixed = TRUE)[[1L]]) {
+      pre <- substr(ids[[i]], 1L, p - 1L)
+      rest <- substr(ids[[i]], p + 1L, nchar(ids[[i]]))
+      g <- c(pre, drop_version(pre))
+      g <- g[g %in% ann$gene_id][1L]
+      if (!is.na(g) && identical(unname(name_of[[g]]), rest)) {
+        key[[i]] <- g
+        break
+      }
+    }
   }
   ann$gene_name[match(key, ann$gene_id)]
 }

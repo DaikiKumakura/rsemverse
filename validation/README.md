@@ -117,3 +117,5 @@ Windows, R 4.5.3, org.Hs.eg.db 3.22.0.
 | One file with its rows shuffled | stopped by default; with `allow_reorder = TRUE` the table equals the one from the original files |
 | `rsem_read(id = "annotation")` with the GENCODE V29 annotation | 57,938 rows from 59,526 genes (58,721 genes named); column sums equal to the OrgDb route. Of the 31,544 names present in both routes, 87 differ in value: the two sources name some genes differently, and GENCODE gives the `_PAR_Y` copies the name of the X copy, so they are summed (216 names merge several IDs, 45 of them `_PAR_Y` IDs) |
 | Posterior columns and `.cnt` files | not run on real data: the ENCODE downloads were made without `--calc-pme` and have no `.cnt` files. The tests use files written to RSEM's documented format |
+
+With the stricter name matching of 0.5.1 (an appended name must be exactly the `gene_name` of the gene before the underscore), the GENCODE V29 numbers above did not change: 57,938 rows, 58,721 genes named, 87 of 31,544 shared names differing in value.

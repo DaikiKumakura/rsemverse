@@ -143,10 +143,12 @@ RefSeq-based references have IDs such as \code{gene1000}, which say nothing
 about the gene; \code{rsem-calculate-expression --append-names} appends the name
 (\code{gene1000_TP53}). With \code{id = "annotation"} and the GTF of the reference
 (or a data frame), each row is named by the \code{gene_name} of its \code{gene_id}.
-A file ID is matched to the annotation as it is, without its Ensembl
-version, or after trailing \verb{_...} parts are removed one at a time; a
-shortened ID counts only if the annotation has exactly that \code{gene_id}, so
-underscores inside IDs or names are not cut. Rows that match nothing, or
+A file ID is matched to the annotation as it is, or without its Ensembl
+version, or as \verb{<gene_id>_<gene_name>} (the form \code{--append-names} writes):
+the part before an underscore must be a \code{gene_id} of the annotation and the
+part after it exactly that gene's \code{gene_name}. An ID such as \code{gene1_2} is
+therefore not taken for \code{gene1}, and underscores inside IDs or names are
+not cut at the wrong place. Rows that match nothing, or
 have no name, keep their ID. Rows with the same name are summed, as for
 symbols (this includes the \verb{_PAR_Y} copies of pseudoautosomal genes in
 GENCODE, which the OrgDb route keeps under their IDs), and

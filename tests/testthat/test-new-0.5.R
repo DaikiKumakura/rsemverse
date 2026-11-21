@@ -41,19 +41,25 @@ test_that("names come from an annotation, also for IDs with appended names and u
     gene_name = c("TP53", "ODD_NAME", "TP53", "GAPDH"), stringsAsFactors = FALSE
   )
   d <- tempfile("ann"); dir.create(d)
-  ids <- c("gene1000_TP53", "gene_with_us_ODD_NAME", "ENSG00000141510.18_TP53", "gene2000", "other_gene", "gene3000")
-  write_rsem5(d, "S1.genes.results", ids, tpm = c(1, 2, 3, 4, 5, 6))
-  write_rsem5(d, "S2.genes.results", ids, tpm = c(10, 20, 30, 40, 50, 60))
+  ids <- c("gene1000_TP53", "gene_with_us_ODD_NAME", "ENSG00000141510.18_TP53", "gene2000", "other_gene", "gene3000",
+           "gene2000_2", "gene1000_WRONG", "gene2000_GAPDH_x")
+  write_rsem5(d, "S1.genes.results", ids, tpm = 1:9)
+  write_rsem5(d, "S2.genes.results", ids, tpm = 10 * (1:9))
   x <- suppressMessages(rsem_read(d, NULL, expr = "tpm", id = "annotation", annotation = ann))
-  expect_equal(rownames(x), c("TP53", "ODD_NAME", "GAPDH", "other_gene", "gene3000"))
-  expect_equal(x$S1, c(1 + 3, 2, 4, 5, 6))                 # rows with the same name are summed
+  # gene2000_2, gene1000_WRONG and gene2000_GAPDH_x are not <gene_id>_<gene_name> of a gene: they keep their IDs
+  expect_equal(rownames(x), c("TP53", "ODD_NAME", "GAPDH", "other_gene", "gene3000", "gene2000_2", "gene1000_WRONG", "gene2000_GAPDH_x"))
+  expect_equal(x$S1, c(1 + 3, 2, 4, 5, 6, 7, 8, 9))         # rows with the same name are summed
   g <- attr(x, "gene_ids")
   expect_equal(g$gene_id, ids)
   expect_equal(g$gene[g$gene_id == "gene_with_us_ODD_NAME"], "ODD_NAME")
   expect_error(rsem_read(d, NULL, expr = "tpm", id = "annotation"), "needs `annotation`")
   expect_error(rsem_read(d, NULL, species = "human", expr = "tpm", annotation = ann), "id = \"annotation\" only")
   # an ID is never cut where the annotation does not have the shortened ID
-  expect_equal(rsemverse:::.names_from_annotation(c("gene_with_us", "gene_with"), ann), c("ODD_NAME", NA))
+  expect_equal(rsemverse:::.names_from_annotation(c("gene_with_us", "gene_with", "gene1000_TP53", "gene1000_tp53"), ann),
+               c("ODD_NAME", NA, "TP53", NA))
+  # a duplicated gene_id in the annotation and a gene without a name do not break the lookup
+  ann2 <- rbind(ann, data.frame(gene_id = c("gene1000", "gene4000"), gene_name = c("OTHER", NA)))
+  expect_equal(rsemverse:::.names_from_annotation(c("gene1000", "gene4000", "gene4000_X"), ann2), c("TP53", NA, NA))
   # transcript level
   e <- tempfile("anniso"); dir.create(e)
   tab <- data.frame(transcript_id = c("T1", "T2"), gene_id = c("gene1000_TP53", "gene2000"), length = 100, effective_length = 90,
@@ -163,4 +169,39 @@ test_that("rsem_check reports every problem at once", {
   ci <- suppressMessages(rsem_check(iso, level = "isoform"))
   expect_equal(ci$check, "reference_mismatch")
   expect_equal(ci$sample_id, "S2")
+})
+
+test_that("rsem_check boundaries: transcript order inside a gene, TPM total tolerance, zero length with counts", {
+  ids <- c("G1", "G2", "G3", "G4")
+  tpm <- c(250000, 250000, 250000, 250000)
+  d <- tempfile("edge"); dir.create(d)
+  write_rsem5(d, "A.genes.results", ids, tpm = tpm, tx = c("T1,T2", "T3", "T4", "T5,T6,T7"))
+  # the same sets listed in another order inside each gene are not a difference
+  write_rsem5(d, "B.genes.results", ids, tpm = tpm, tx = c("T2,T1", "T3", "T4", "T7,T5,T6"))
+  expect_equal(nrow(suppressMessages(rsem_check(d))), 0L)
+  # a different set is one, also when only one transcript is added or dropped
+  write_rsem5(d, "C.genes.results", ids, tpm = tpm, tx = c("T1,T2", "T3", "T4", "T5,T6"))
+  chk <- suppressMessages(rsem_check(d))
+  expect_equal(chk$check, "reference_mismatch")
+  expect_equal(chk$n, 1L)
+  expect_equal(chk$sample_id, "C")
+  # TPM total: rounding in the files (a few units) is accepted, 0.2% off is a warning
+  t <- tempfile("tpm"); dir.create(t)
+  write_rsem5(t, "A.genes.results", ids, tpm = tpm + c(0.4, -0.3, 0.2, 0.1), tx = c("T1", "T2", "T3", "T4"))
+  write_rsem5(t, "B.genes.results", ids, tpm = tpm + c(900, 0, 0, 0), tx = c("T1", "T2", "T3", "T4"))
+  write_rsem5(t, "C.genes.results", ids, tpm = tpm + c(2000, 0, 0, 0), tx = c("T1", "T2", "T3", "T4"))
+  chk <- suppressMessages(rsem_check(t))
+  expect_equal(chk$sample_id[chk$check == "tpm_total"], "C")
+  # a gene with effective length 0 and a positive count is reported as such and never changed
+  z <- tempfile("zero"); dir.create(z)
+  write_rsem5(z, "A.genes.results", ids, len = c(500, 0, 300, 200), tpm = tpm, count = c(10, 5, 7, 3), tx = c("T1", "T2", "T3", "T4"))
+  write_rsem5(z, "B.genes.results", ids, len = c(500, 0, 300, 200), tpm = tpm, count = c(11, 6, 8, 4), tx = c("T1", "T2", "T3", "T4"))
+  chk <- suppressMessages(rsem_check(z))
+  expect_equal(chk$check, c("zero_effective_length", "zero_effective_length"))
+  expect_true(all(chk$severity == "WARNING"))
+  len <- suppressMessages(rsem_read(z, NULL, expr = "length", id = "original"))
+  cnt <- suppressMessages(rsem_read(z, NULL, expr = "count", id = "original"))
+  expect_equal(len$A, c(500, 0, 300, 200))
+  expect_equal(cnt$A, c(10, 5, 7, 3))
+  expect_equal(attr(len, "zero_length"), c(A = 1, B = 1))
 })

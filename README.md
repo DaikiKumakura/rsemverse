@@ -162,8 +162,10 @@ differ between files, or the species does not match.
 For RefSeq-based references, whose IDs (`gene1000`) say little,
 `id = "annotation", annotation = "reference.gtf"` names the rows by the
 `gene_name` of the annotation, also for IDs that carry the name that
-`--append-names` appends; an ID is shortened only to an ID the annotation
-has, so underscores in IDs or names are safe. Posterior estimates written by
+`--append-names` appends (`<gene_id>_<gene_name>`); the part before an
+underscore must be a `gene_id` of the annotation and the part after it that
+gene's `gene_name`, so `gene1_2` is not taken for `gene1` and underscores in
+IDs or names are safe. Posterior estimates written by
 `--calc-pme` or `--calc-ci` are read with `expr = "pme_count"`, `"pme_tpm"`,
 `"count_sd"`, `"tpm_ci_lower"` and `"tpm_ci_upper"`; the posterior means add
 up like counts, while standard deviations and credibility bounds need

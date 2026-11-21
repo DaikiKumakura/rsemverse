@@ -1,3 +1,16 @@
+# rsemverse 0.5.1
+
+* `rsem_read(id = "annotation")` is stricter: an ID with an appended name is
+  accepted only as `<gene_id>_<gene_name>`, with the part before an
+  underscore a `gene_id` of the annotation and the part after it exactly that
+  gene's `gene_name`. Before, an ID such as `gene1_2` was read as the gene
+  `gene1` whenever the annotation had `gene1`. IDs that do not fit keep their
+  ID.
+* More tests for `rsem_check()` and `rsem_read(id = "annotation")`: the order
+  of transcripts inside a gene, the TPM total tolerance, zero effective
+  length with a positive count (reported, never changed), duplicated or
+  unnamed genes in the annotation.
+
 # rsemverse 0.5.0
 
 Protection against comparing files that should not be compared, more of
