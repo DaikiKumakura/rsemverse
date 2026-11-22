@@ -6,7 +6,9 @@
 #' name ending in `.gz` is compressed. The file is for sharing and for other
 #' tools; to continue in R, keep using the table itself.
 #'
-#' @param x The gene by sample table.
+#' @param x The gene by sample table. Missing values, such as the `NA` that
+#'   [rsem_apply_reference()] gives a gene with no spread in the reference, are
+#'   written as `NA`.
 #' @param file Output path (`.tsv` or `.tsv.gz`).
 #' @param ids The attribute `"gene_ids"` of the table [rsem_read()] returned,
 #'   `attr(tpm, "gene_ids")`: adds the column `gene_id` with the original IDs
@@ -27,7 +29,7 @@
 #' @export
 rsem_write <- function(x, file, ids = attr(x, "gene_ids", exact = TRUE), annotation = NULL) {
   if (!is.character(file) || length(file) != 1L || is.na(file) || !nzchar(file)) .stopf("`file` must be a file path.")
-  m <- .expr_matrix(x, nonnegative = FALSE)
+  m <- .expr_matrix(x, nonnegative = FALSE, allow_na = TRUE)
   out <- data.frame(gene = rownames(m), stringsAsFactors = FALSE)
   if (!is.null(ids)) {
     if (!is.data.frame(ids) || !all(c("gene", "gene_id") %in% names(ids))) {

@@ -8,7 +8,9 @@ rsem_long(x, metadata = NULL)
 }
 \arguments{
 \item{x}{The gene by sample table, as returned by \code{\link[=rsem_read]{rsem_read()}} or the
-other functions of this package.}
+other functions of this package. Missing values, such as the \code{NA} that
+\code{\link[=rsem_apply_reference]{rsem_apply_reference()}} gives a gene with no spread in the reference, are
+kept as \code{NA} in \code{value}.}
 
 \item{metadata}{The sample table: a path to a CSV file, or a data frame,
 with a \code{sample_id} column. Optional; without it only \code{gene}, \code{sample_id}

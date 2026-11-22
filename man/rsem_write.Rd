@@ -7,7 +7,9 @@
 rsem_write(x, file, ids = attr(x, "gene_ids", exact = TRUE), annotation = NULL)
 }
 \arguments{
-\item{x}{The gene by sample table.}
+\item{x}{The gene by sample table. Missing values, such as the \code{NA} that
+\code{\link[=rsem_apply_reference]{rsem_apply_reference()}} gives a gene with no spread in the reference, are
+written as \code{NA}.}
 
 \item{file}{Output path (\code{.tsv} or \code{.tsv.gz}).}
 

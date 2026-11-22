@@ -60,15 +60,27 @@ rsem_reconcile <- function(data = "data", isoform_data = data,
   for (sid in g$sample_id) {
     gp <- g$path[g$sample_id == sid]
     ip <- i$path[i$sample_id == sid]
+    for (pth in c(gp, ip)) {
+      hdr <- .rsem_header(pth)
+      need_id <- if (pth == gp) "gene_id" else c("gene_id", "transcript_id")
+      if (!all(need_id %in% hdr)) .stopf("%s has no '%s' column.", pth, paste(setdiff(need_id, hdr), collapse = "', '"))
+    }
     G <- .fread_rsem(gp, colClasses = list(character = "gene_id"))
     I <- .fread_rsem(ip, colClasses = list(character = c("transcript_id", "gene_id")))
     need <- setdiff(columns, intersect(names(G), names(I)))
     if (length(need)) .stopf("Column(s) %s are missing in the files of sample '%s'.", toString(need), sid)
+    if (anyNA(G$gene_id) || anyNA(I$gene_id) || anyNA(I$transcript_id) ||
+        any(!nzchar(G$gene_id)) || any(!nzchar(I$gene_id)) || any(!nzchar(I$transcript_id))) {
+      .stopf("Sample '%s': empty or missing IDs; run rsem_check() first.", sid)
+    }
     if (anyDuplicated(G$gene_id)) .stopf("Sample '%s': the gene file has duplicated gene_id values.", sid)
     if (anyDuplicated(I$transcript_id)) .stopf("Sample '%s': the isoform file has duplicated transcript_id values.", sid)
     for (col in columns) {
       if (!is.numeric(G[[col]]) || !is.numeric(I[[col]]) || any(!is.finite(G[[col]])) || any(!is.finite(I[[col]]))) {
         .stopf("Sample '%s': column '%s' has missing, infinite or non-numeric values; run rsem_check() first.", sid, col)
+      }
+      if (any(G[[col]] < 0) || any(I[[col]] < 0)) {
+        .stopf("Sample '%s': column '%s' has negative values (RSEM writes none); run rsem_check() first.", sid, col)
       }
     }
     n_iso <- table(I$gene_id)

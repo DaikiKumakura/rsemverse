@@ -20,7 +20,9 @@
 #' samples in that order. Each gene's rows are next to each other.
 #'
 #' @param x The gene by sample table, as returned by [rsem_read()] or the
-#'   other functions of this package.
+#'   other functions of this package. Missing values, such as the `NA` that
+#'   [rsem_apply_reference()] gives a gene with no spread in the reference, are
+#'   kept as `NA` in `value`.
 #' @param metadata The sample table: a path to a CSV file, or a data frame,
 #'   with a `sample_id` column. Optional; without it only `gene`, `sample_id`
 #'   and `value` are returned.
@@ -39,7 +41,7 @@
 #' }
 #' @export
 rsem_long <- function(x, metadata = NULL) {
-  m <- .expr_matrix(x, nonnegative = FALSE)
+  m <- .expr_matrix(x, nonnegative = FALSE, allow_na = TRUE)
   samples <- colnames(m)
   out <- data.frame(
     gene = rep(rownames(m), each = ncol(m)),

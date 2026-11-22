@@ -3,7 +3,7 @@
 # Turn the table into a numeric matrix with genes as row names. Accepts the
 # data frame rsem_read() returns (symbols as row names), a data frame whose
 # first column holds the gene names, or a numeric matrix with row names.
-.expr_matrix <- function(x, nonnegative = TRUE, arg = "x") {
+.expr_matrix <- function(x, nonnegative = TRUE, arg = "x", allow_na = FALSE) {
   if (is.data.frame(x)) {
     if (ncol(x) >= 1L && !is.numeric(x[[1L]])) {
       genes <- as.character(x[[1L]])
@@ -44,9 +44,9 @@
   if (anyDuplicated(samples)) {
     .stopf("`%s` has duplicated sample names: %s", arg, paste(unique(samples[duplicated(samples)]), collapse = ", "))
   }
-  if (anyNA(m)) .stopf("`%s` contains missing values.", arg)
-  if (any(!is.finite(m))) .stopf("`%s` contains infinite values.", arg)
-  if (nonnegative && any(m < 0)) {
+  if (!allow_na && anyNA(m)) .stopf("`%s` contains missing values.", arg)
+  if (any(is.infinite(m))) .stopf("`%s` contains infinite values.", arg)
+  if (nonnegative && any(m < 0, na.rm = TRUE)) {
     .stopf("`%s` contains negative values; it must be counts or TPM, not log-transformed or scaled values.", arg)
   }
   m

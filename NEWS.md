@@ -1,3 +1,15 @@
+# rsemverse 0.6.2
+
+## Changes
+
+* `rsem_long()` and `rsem_write()` keep missing values. The z-scores of
+  `rsem_apply_reference()` are `NA` for a gene with no spread in the reference
+  group; the two functions refused such a table, so the step from reference z-scores to
+  a long table or a file failed. The other functions still stop on missing values.
+* `rsem_reconcile()` stops on negative values (RSEM writes none: a pair of files with the
+  same negative value in both would have counted as in agreement), on empty or missing IDs,
+  and on a file without the `gene_id` or `transcript_id` column.
+
 # rsemverse 0.6.1
 
 Gaps in the checks of 0.6.0 and two older ones, found by reading the code.
