@@ -33,6 +33,7 @@ often they are used.
 | Alignment statistics of the `.cnt` files | [RNASeqPipelineR](https://github.com/RGLab/RNASeqPipelineR), [MultiQC RSEM module](https://docs.seqera.io/multiqc/modules/rsem) | `rsem_mapping_qc()`: the fractions as a table, files whose totals do not add up are refused |
 | Check that all files come from one reference, have the same genes and finite values | ad hoc `all(ids == ids[[1]])` tests in merging scripts | `rsem_check()` lists every problem at once; `rsem_read()` stops on them and compares the transcripts of each gene |
 | Name RefSeq genes (`gene1000`) from the reference annotation | joins against the GTF of the reference | `rsem_read(id = "annotation", annotation = gtf)` |
+| Compare the gene file with the isoform file of a sample | none found in public scripts; follows RSEM's definition of a gene's abundance | `rsem_reconcile()`: allows for two-decimal rounding, finds mixed-up files |
 | TMMwsp factors | `edgeR::calcNormFactors(method = "TMMwsp")` | `rsem_normalize(method = "tmmwsp")`, equal to edgeR |
 
 ## What rsemverse does not copy

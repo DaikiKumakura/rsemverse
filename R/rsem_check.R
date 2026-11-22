@@ -124,7 +124,13 @@ rsem_check <- function(data = "data", metadata = NULL, level = "gene", sample_fr
       }
       if (col == "TPM" && !anyNA(v)) {
         total <- sum(v)
-        if (abs(total - 1e6) > 1e3) add("WARNING", "tpm_total", sid, sprintf("TPM adds up to %s, not 1e6", format(signif(total, 7), scientific = FALSE)))
+        # RSEM prints TPM with two decimals: the total can be off by up to 0.005 per row
+        # from rounding alone (the typical error is about 0.003 * sqrt(rows)), far below 1e3.
+        if (abs(total - 1e6) > 1e3) add("WARNING", "tpm_total", sid, sprintf(
+          "TPM adds up to %s, not 1e6 (difference %s; rounding of %d rows explains at most %s)",
+          format(signif(total, 7), scientific = FALSE), format(signif(total - 1e6, 4), scientific = FALSE),
+          length(v), format(signif(0.005 * length(v), 3), scientific = FALSE)
+        ), length(v))
       }
       if (col == "expected_count" && !anyNA(v) && sum(v) == 0) add("WARNING", "no_counts", sid, "the expected counts are 0 for every row")
     }

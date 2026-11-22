@@ -1,3 +1,24 @@
+# rsemverse 0.6.0
+
+Two checks that use the structure of RSEM's own output, and a report of merged IDs.
+
+## New functions
+
+* `rsem_reconcile()` compares `*.genes.results` and `*.isoforms.results` of the
+  same samples: the gene value of `expected_count`, `TPM` and `FPKM` must equal the
+  sum over its transcripts, within the rounding that two-decimal output allows
+  (`0.005 * (n + 1)` for `n` transcripts). On six ENCODE K562 runs no gene is beyond
+  rounding (largest difference 0.05); with the isoform file of another sample, 20,405
+  of 59,526 genes are.
+* `rsem_id_report()` lists the rows of a table from `rsem_read()` that combine several
+  gene IDs, with the IDs. On the ENCODE files, 89 rows.
+
+## Changes
+
+* The `rsem_check()` warning for a TPM total away from 1e6 now states the difference and
+  the largest difference that two-decimal rounding of that many rows can cause.
+  The threshold of 1,000 is unchanged: on the ENCODE files the total is within 0.1 of 1e6.
+
 # rsemverse 0.5.1
 
 * `rsem_read(id = "annotation")` is stricter: an ID with an appended name is

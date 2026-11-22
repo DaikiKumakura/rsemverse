@@ -14,9 +14,11 @@ so the steps chain in any order, and each prints what it did.
 \section{Workflow}{
 
 \enumerate{
-\item \code{\link[=rsem_check]{rsem_check()}} and \code{\link[=rsem_read]{rsem_read()}}: check the files, then read counts, TPM,
+\item \code{\link[=rsem_check]{rsem_check()}}, \code{\link[=rsem_reconcile]{rsem_reconcile()}} and \code{\link[=rsem_read]{rsem_read()}}: check the files and that
+gene and isoform files agree, then read counts, TPM,
 effective lengths or posterior estimates into a gene symbol by sample
-table; find the files without a sample table if wanted.
+table (and see which gene IDs were merged with \code{\link[=rsem_id_report]{rsem_id_report()}}); find the
+files without a sample table if wanted.
 \item \code{\link[=rsem_detection_curve]{rsem_detection_curve()}} and \code{\link[=rsem_filter]{rsem_filter()}}: see how many genes each
 detection threshold keeps, then remove lowly expressed genes (edgeR
 \code{filterByExpr()} rule, detection thresholds) or keep the most variable.

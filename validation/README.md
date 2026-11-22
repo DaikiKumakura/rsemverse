@@ -119,3 +119,14 @@ Windows, R 4.5.3, org.Hs.eg.db 3.22.0.
 | Posterior columns and `.cnt` files | not run on real data: the ENCODE downloads were made without `--calc-pme` and have no `.cnt` files. The tests use files written to RSEM's documented format |
 
 With the stricter name matching of 0.5.1 (an appended name must be exactly the `gene_name` of the gene before the underscore), the GENCODE V29 numbers above did not change: 57,938 rows, 58,721 genes named, 87 of 31,544 shared names differing in value.
+
+## 0.6.0 (`validation/encode-k562-0.6.0.R`, November 22, 2026)
+
+On the same six ENCODE K562 runs with their transcript files:
+
+| Check | Result |
+|---|---|
+| `rsem_reconcile()`, 3 columns x 6 samples | no gene beyond the rounding bound; the largest difference was 0.05 (TPM) and 0.04 (count) |
+| Isoform file of another sample under one sample's name | 20,405 of 59,526 genes beyond the bound for that sample, none for the others |
+| `rsem_id_report()` with `org.Hs.eg.db` | 89 rows combine several gene IDs (largest: 7) |
+| TPM total of a run | within 0.1 of 1e6 |

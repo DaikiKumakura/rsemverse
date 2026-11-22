@@ -38,6 +38,8 @@ same table and returns the same table, so the steps chain in any order.
           rsem_subset()            keep or remove gene groups (OrgDb or GTF)
           rsem_biotype_profile()   share of rRNA, lncRNA, … in each sample
           rsem_check()             problems in the RSEM files, all at once, before reading
+          rsem_reconcile()         do gene and isoform files agree, allowing for rounding
+          rsem_id_report()         rows that combine several gene IDs
           rsem_mapping_qc()        alignable, filtered, unique-gene reads from the .cnt files
           rsem_sample_qc()         PCA, sample correlation, detected genes per sample
           rsem_normalize()         normalize between samples
@@ -63,6 +65,8 @@ Effective lengths: `rsem_read(expr = "length")` and `rsem_length_profile()`.
 | Gene types | `rsem_biotype_profile()` | share of each gene type of a GTF per sample; `total =` for the unfiltered denominator |
 | Sample QC | `rsem_sample_qc()` | PCA on the most variable genes, sample correlation (`"spearman"`, `"pearson"`, `"kendall"`) on detected, all or variable genes, per-sample summary |
 | Check files | `rsem_check()` | errors, warnings and notes about the files: columns, values, IDs, zero lengths, different references |
+| Gene and isoform files agree | `rsem_reconcile()` | per sample and column: genes whose transcripts do not add up to the gene value beyond rounding |
+| Merged IDs | `rsem_id_report()` | rows that combine several gene IDs, with the IDs |
 | Read statistics | `rsem_mapping_qc()` | alignable, unalignable, filtered, unique-gene and multi-gene fractions from `.cnt` files |
 | Normalize | `rsem_normalize()` | `"cpm"`, `"tmm"`, `"tmmwsp"`, `"upper_quartile"`, `"deseq2"`, `"quantile"` |
 | Transform | `rsem_transform()` | `"log2"`, `"zscore"`, `"center"`, `"rank"` |
@@ -303,6 +307,25 @@ description. `rsem_read()` itself stops on the same errors, and its
 `validate_reference = TRUE` (the default) checks the `transcript_id(s)` column
 of gene-level files as sets; `allow_reorder = TRUE` accepts files with the same
 IDs in another order.
+
+### Gene and isoform files agree: `rsem_reconcile()`
+
+RSEM defines a gene's abundance as the sum of its transcripts' abundances.
+`rsem_reconcile("rsem")` checks this for every sample and for `expected_count`,
+`TPM` and `FPKM`. Because RSEM prints these with two decimals and rounds the gene
+and the transcript values separately, the printed values can differ by up to
+`0.005 * (n + 1)` for a gene with `n` transcripts; only larger differences are
+counted. It finds gene and isoform files of different samples (in a test with
+the isoform file of another ENCODE sample, 20,405 of 59,526 genes exceeded the
+bound, against none for the correct pairs), truncated files, and files from
+different references.
+
+### Which IDs were merged: `rsem_id_report()`
+
+`rsem_read()` sums rows with the same symbol. `rsem_id_report(x)` lists the rows
+that combine several gene IDs and the IDs behind them. The effective length of
+such a row (`expr = "length"`) is a TPM-weighted mean over different genes, not a
+length that RSEM estimated, so do not use it as a length offset.
 
 ### Sample QC: `rsem_sample_qc()`
 

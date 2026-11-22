@@ -6,9 +6,11 @@
 #' so the steps chain in any order, and each prints what it did.
 #'
 #' @section Workflow:
-#' 1. [rsem_check()] and [rsem_read()]: check the files, then read counts, TPM,
+#' 1. [rsem_check()], [rsem_reconcile()] and [rsem_read()]: check the files and that
+#'    gene and isoform files agree, then read counts, TPM,
 #'    effective lengths or posterior estimates into a gene symbol by sample
-#'    table; find the files without a sample table if wanted.
+#'    table (and see which gene IDs were merged with [rsem_id_report()]); find the
+#'    files without a sample table if wanted.
 #' 2. [rsem_detection_curve()] and [rsem_filter()]: see how many genes each
 #'    detection threshold keeps, then remove lowly expressed genes (edgeR
 #'    `filterByExpr()` rule, detection thresholds) or keep the most variable.
