@@ -476,6 +476,9 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
     x <- suppressWarnings(.fread_rsem(samples$path[[i]], select = required, colClasses = classes))
     if (!is.numeric(x[[column]])) .stopf("%s has non-numeric values in '%s'.", label, column)
     if (anyNA(x[[column]]) || anyNA(x[[key]])) .stopf("%s contains missing values.", label)
+    if (any(!is.finite(x[[column]])) || any(x[[column]] < 0)) {
+      .stopf("%s has infinite or negative values in '%s' (RSEM writes none); the file may be damaged. rsem_check() lists the rows.", label, column)
+    }
     if (anyDuplicated(x[[key]])) .stopf("%s contains duplicated %s values.", label, key)
 
     if (is.null(row_id)) {

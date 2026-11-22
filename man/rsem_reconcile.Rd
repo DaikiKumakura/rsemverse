@@ -31,7 +31,10 @@ A data frame with one row per sample and column: \code{n_genes} compared,
 \code{n_beyond_rounding} (genes whose difference is above the bound),
 \code{max_abs_diff}, the \code{worst_gene}, and the numbers of genes only in the gene
 file (\code{genes_without_isoforms}) or only in the isoform file
-(\code{isoform_genes_missing}). Samples found in only one of the folders are
+(\code{isoform_genes_missing}), and \code{transcript_mapping_mismatch}, the number of
+genes whose \code{transcript_id(s)} in the gene file are not the transcripts of
+that gene in the isoform file (a change of reference that the sums cannot
+show). Samples found in only one of the folders are
 reported as a stop.
 }
 \description{

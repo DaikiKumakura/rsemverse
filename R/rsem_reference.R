@@ -64,6 +64,9 @@
 rsem_fit_reference <- function(x, reference, metadata = NULL, group = NULL, transform = "log2", pseudocount = 1) {
   if (missing(reference)) .stopf("`reference` is required: sample IDs, or group values with `metadata` and `group`.")
   transform <- .choice(transform, c("log2", "none"), "transform")
+  if (transform == "log2" && "log2" %in% attr(x, "transform", exact = TRUE)) {
+    .stopf("`x` is already log2-transformed (rsem_transform()); use transform = \"none\" so that it is not transformed twice.")
+  }
   m <- .expr_matrix(x, nonnegative = transform == "log2")
   if (!is.character(reference) || !length(reference) || anyNA(reference)) {
     .stopf("`reference` must be one or more sample IDs or group values.")
@@ -108,6 +111,9 @@ rsem_fit_reference <- function(x, reference, metadata = NULL, group = NULL, tran
 rsem_apply_reference <- function(x, reference, zero_sd = "na") {
   if (!inherits(reference, "rsem_reference")) .stopf("`reference` must be the result of rsem_fit_reference().")
   zero_sd <- .choice(zero_sd, c("na", "drop"), "zero_sd")
+  if (reference$transform == "log2" && "log2" %in% attr(x, "transform", exact = TRUE)) {
+    .stopf("`x` is already log2-transformed (rsem_transform()), but the reference applies log2 itself; fit the reference with transform = \"none\" on log2 values, or apply it to untransformed values.")
+  }
   m <- .expr_matrix(x, nonnegative = reference$transform == "log2")
   genes <- names(reference$mean)
   common <- rownames(m)[rownames(m) %in% genes]

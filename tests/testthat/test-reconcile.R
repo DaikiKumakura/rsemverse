@@ -71,3 +71,43 @@ test_that("rsem_check reports the rounding allowance when the TPM total is off",
   expect_equal(nrow(w), 1L)
   expect_match(w$detail, "rounding of 2 rows explains at most 0.01")
 })
+
+test_that("rsem_reconcile finds transcripts that differ although the sums agree", {
+  d <- withr::local_tempdir()
+  iso <- base_iso(); iso$tx <- c("T1", "T9", "T3")  # gene file lists T1,T2 for G1
+  write_pair(d, "s1", base_genes(), iso)
+  res <- suppressMessages(rsem_reconcile(d, columns = "expected_count"))
+  expect_equal(res$n_beyond_rounding, 0L)
+  expect_equal(res$transcript_mapping_mismatch, 1L)
+})
+
+test_that("rsem_reconcile stops on non-finite values, duplicated IDs and an infinite tolerance", {
+  d <- withr::local_tempdir()
+  iso <- base_iso(); iso$tpm[[1]] <- Inf
+  write_pair(d, "s1", base_genes(), iso)
+  expect_error(suppressMessages(rsem_reconcile(d, columns = "TPM")), "infinite")
+  expect_error(suppressMessages(rsem_reconcile(d, tolerance_extra = Inf)), "finite")
+  d2 <- withr::local_tempdir()
+  gg <- base_genes(); gg$id <- c("G1", "G1")
+  write_pair(d2, "s1", gg, base_iso())
+  expect_error(suppressMessages(rsem_reconcile(d2)), "duplicated")
+})
+
+test_that("rsem_read stops on infinite or negative values", {
+  d <- withr::local_tempdir()
+  g <- data.frame(gene_id = c("G1", "G2"), "transcript_id(s)" = c("T1", "T2"), length = 1000, effective_length = 900,
+                  expected_count = c(5, -1), TPM = c(1, 2), FPKM = 1, check.names = FALSE)
+  utils::write.table(g, file.path(d, "s1.genes.results"), sep = "	", quote = FALSE, row.names = FALSE)
+  expect_error(suppressMessages(rsem_read(d, metadata = NULL, expr = "count", id = "original")), "negative")
+  g$expected_count <- c(5, Inf)
+  utils::write.table(g, file.path(d, "s1.genes.results"), sep = "	", quote = FALSE, row.names = FALSE)
+  expect_error(suppressMessages(rsem_read(d, metadata = NULL, expr = "count", id = "original")), "infinite")
+})
+
+test_that("the reference z-score refuses log2 values twice", {
+  x <- data.frame(a = c(1, 2, 3), b = c(2, 3, 5), c = c(3, 5, 8), row.names = c("g1", "g2", "g3"))
+  lx <- suppressMessages(rsem_transform(x, "log2"))
+  expect_error(suppressMessages(rsem_fit_reference(lx, reference = c("a", "b"))), "already log2")
+  ref <- suppressMessages(rsem_fit_reference(x, reference = c("a", "b")))
+  expect_error(suppressMessages(rsem_apply_reference(lx, ref)), "already log2")
+})

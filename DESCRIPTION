@@ -1,7 +1,7 @@
 Package: rsemverse
 Type: Package
 Title: From RSEM Results to Analysis-Ready Gene Tables
-Version: 0.6.0
+Version: 0.6.1
 Authors@R: person("Daiki", "Kumakura", role = c("aut", "cre"),
     email = "55353329+DaikiKumakura@users.noreply.github.com")
 Description: Turns RSEM '*.genes.results' and '*.isoforms.results' files

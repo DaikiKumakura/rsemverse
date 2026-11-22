@@ -26,7 +26,10 @@
 #'   `n_beyond_rounding` (genes whose difference is above the bound),
 #'   `max_abs_diff`, the `worst_gene`, and the numbers of genes only in the gene
 #'   file (`genes_without_isoforms`) or only in the isoform file
-#'   (`isoform_genes_missing`). Samples found in only one of the folders are
+#'   (`isoform_genes_missing`), and `transcript_mapping_mismatch`, the number of
+#'   genes whose `transcript_id(s)` in the gene file are not the transcripts of
+#'   that gene in the isoform file (a change of reference that the sums cannot
+#'   show). Samples found in only one of the folders are
 #'   reported as a stop.
 #' @examples
 #' \dontrun{
@@ -41,8 +44,8 @@ rsem_reconcile <- function(data = "data", isoform_data = data,
   }
   columns <- unique(columns)
   sample_from <- .choice(sample_from, c("filename", "parent_dir"), "sample_from")
-  if (!is.numeric(tolerance_extra) || length(tolerance_extra) != 1L || is.na(tolerance_extra) || tolerance_extra < 0) {
-    .stopf("`tolerance_extra` must be a single number that is not negative.")
+  if (!is.numeric(tolerance_extra) || length(tolerance_extra) != 1L || !is.finite(tolerance_extra) || tolerance_extra < 0) {
+    .stopf("`tolerance_extra` must be a single finite number that is not negative.")
   }
   g <- suppressMessages(.discover_samples(data, "gene", sample_from))
   i <- suppressMessages(.discover_samples(isoform_data, "isoform", sample_from))
@@ -61,10 +64,25 @@ rsem_reconcile <- function(data = "data", isoform_data = data,
     I <- .fread_rsem(ip, colClasses = list(character = c("transcript_id", "gene_id")))
     need <- setdiff(columns, intersect(names(G), names(I)))
     if (length(need)) .stopf("Column(s) %s are missing in the files of sample '%s'.", toString(need), sid)
+    if (anyDuplicated(G$gene_id)) .stopf("Sample '%s': the gene file has duplicated gene_id values.", sid)
+    if (anyDuplicated(I$transcript_id)) .stopf("Sample '%s': the isoform file has duplicated transcript_id values.", sid)
+    for (col in columns) {
+      if (!is.numeric(G[[col]]) || !is.numeric(I[[col]]) || any(!is.finite(G[[col]])) || any(!is.finite(I[[col]]))) {
+        .stopf("Sample '%s': column '%s' has missing, infinite or non-numeric values; run rsem_check() first.", sid, col)
+      }
+    }
     n_iso <- table(I$gene_id)
     only_gene <- setdiff(G$gene_id, I$gene_id)
     only_iso <- setdiff(I$gene_id, G$gene_id)
     common <- intersect(G$gene_id, I$gene_id)
+    # The transcripts that the gene file lists for a gene must be the transcripts
+    # of that gene in the isoform file, whatever the values.
+    tx_mismatch <- 0L
+    if ("transcript_id(s)" %in% names(G)) {
+      listed <- strsplit(G[["transcript_id(s)"]][match(common, G$gene_id)], ",", fixed = TRUE)
+      in_iso <- split(I$transcript_id, factor(I$gene_id, levels = common))
+      tx_mismatch <- sum(!mapply(function(a, b) setequal(a, b), listed, in_iso[common]))
+    }
     for (col in columns) {
       s <- rowsum(I[[col]], I$gene_id, reorder = FALSE)
       gv <- G[[col]][match(common, G$gene_id)]
@@ -78,13 +96,15 @@ rsem_reconcile <- function(data = "data", isoform_data = data,
         max_abs_diff = if (length(d)) max(d) else NA_real_,
         worst_gene = if (length(d)) common[[which.max(d - bound)]] else NA_character_,
         genes_without_isoforms = length(only_gene), isoform_genes_missing = length(only_iso),
+        transcript_mapping_mismatch = tx_mismatch,
         stringsAsFactors = FALSE
       )
     }
   }
   out <- do.call(rbind, rows)
   rownames(out) <- NULL
-  bad <- out$n_beyond_rounding > 0 | out$genes_without_isoforms > 0 | out$isoform_genes_missing > 0
+  bad <- out$n_beyond_rounding > 0 | out$genes_without_isoforms > 0 | out$isoform_genes_missing > 0 |
+    out$transcript_mapping_mismatch > 0
   message(sprintf(
     "rsem_reconcile: %d samples, %s; %d of %d sample-column checks are not explained by rounding",
     nrow(g), paste(columns, collapse = ", "), sum(bad), nrow(out)

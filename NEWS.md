@@ -1,3 +1,25 @@
+# rsemverse 0.6.1
+
+Gaps in the checks of 0.6.0 and two older ones, found by reading the code.
+
+## Changes
+
+* `rsem_reconcile()` also compares the transcripts: the `transcript_id(s)` that the
+  gene file lists for a gene must be the transcripts of that gene in the isoform file
+  (new column `transcript_mapping_mismatch`). A transcript that is renamed leaves the
+  sums unchanged, so the values alone could not show a different reference. It now
+  stops on missing, infinite or non-numeric values, on duplicated IDs, and on an
+  infinite `tolerance_extra`, instead of returning `NA`.
+* `rsem_read()` stops on infinite or negative values in the column it reads (RSEM
+  writes none; they mean a damaged file). Before, only missing values stopped it.
+* `rsem_fit_reference()` and `rsem_apply_reference()` stop when the table is already
+  log2-transformed and the reference applies `log2` itself, as `rsem_sample_qc()`
+  does, instead of taking the logarithm twice.
+* Not changed: the `rsem_check()` warning for the TPM total still uses 1,000. The
+  largest difference that rounding can cause (0.005 per row) is a worst case; the
+  typical error is about 0.003 times the square root of the number of rows (3 for a
+  million rows), and a total off by 1,500 is not explained by rounding in practice.
+
 # rsemverse 0.6.0
 
 Two checks that use the structure of RSEM's own output, and a report of merged IDs.

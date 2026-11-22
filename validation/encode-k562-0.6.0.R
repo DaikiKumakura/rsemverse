@@ -7,8 +7,9 @@ suppressMessages(devtools::load_all(quiet = TRUE))
 dir <- args[[1L]]
 
 rec <- rsem_reconcile(dir)
-print(rec[, c("sample_id", "column", "n_genes", "n_beyond_rounding", "max_abs_diff", "genes_without_isoforms")])
-stopifnot(all(rec$n_beyond_rounding == 0), all(rec$genes_without_isoforms == 0), all(rec$isoform_genes_missing == 0))
+print(rec[, c("sample_id", "column", "n_genes", "n_beyond_rounding", "max_abs_diff", "genes_without_isoforms", "transcript_mapping_mismatch")])
+stopifnot(all(rec$n_beyond_rounding == 0), all(rec$genes_without_isoforms == 0), all(rec$isoform_genes_missing == 0),
+          all(rec$transcript_mapping_mismatch == 0))
 
 # A different sample's isoform file must be caught.
 tmp <- tempfile(); dir.create(tmp)
