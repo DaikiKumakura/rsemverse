@@ -6,7 +6,7 @@ authors:
   - family-names: Kumakura
     given-names: Daiki
     orcid: "https://orcid.org/0000-0001-9859-0720"
-version: "0.7.0"
+version: "0.7.1"
 date-released: "2026-11-20"
 identifiers:
   - type: doi

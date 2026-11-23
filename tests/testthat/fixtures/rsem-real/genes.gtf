@@ -1,0 +1,9 @@
+chr1	t	exon	101	400	.	+	.	gene_id "GA"; transcript_id "GA.1"; gene_name "ALPHA"; exon_number "1";
+chr1	t	exon	601	900	.	+	.	gene_id "GA"; transcript_id "GA.1"; gene_name "ALPHA"; exon_number "2";
+chr1	t	exon	1101	1400	.	+	.	gene_id "GA"; transcript_id "GA.1"; gene_name "ALPHA"; exon_number "3";
+chr1	t	exon	101	400	.	+	.	gene_id "GA"; transcript_id "GA.2"; gene_name "ALPHA"; exon_number "1";
+chr1	t	exon	1101	1400	.	+	.	gene_id "GA"; transcript_id "GA.2"; gene_name "ALPHA"; exon_number "2";
+chr1	t	exon	2001	2500	.	+	.	gene_id "GB"; transcript_id "GB.1"; gene_name "BETA"; exon_number "1";
+chr1	t	exon	2801	3200	.	+	.	gene_id "GB"; transcript_id "GB.1"; gene_name "BETA"; exon_number "2";
+chr1	t	exon	3501	3560	.	+	.	gene_id "GC"; transcript_id "GC.1"; gene_name "GAMMA"; exon_number "1";
+chr1	t	exon	4001	4600	.	+	.	gene_id "GD"; transcript_id "GD.1"; gene_name "DELTA_X"; exon_number "1";

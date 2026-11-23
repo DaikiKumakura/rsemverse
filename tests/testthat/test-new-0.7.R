@@ -155,3 +155,69 @@ test_that("rsem_reconcile says when the transcripts could not be compared", {
   expect_false(res$transcript_mapping_checked)
   expect_message(rsem_reconcile(d, columns = "expected_count"), "were not compared")
 })
+
+test_that("a GTF without gene rows gives names from its exon rows", {
+  gtf <- tempfile(fileext = ".gtf")
+  writeLines(c(
+    'chr1\tt\texon\t1\t10\t.\t+\t.\tgene_id "G1"; transcript_id "T1"; gene_name "ALPHA";',
+    'chr1\tt\texon\t20\t30\t.\t+\t.\tgene_id "G1"; transcript_id "T1"; gene_name "ALPHA";',
+    'chr1\tt\texon\t50\t80\t.\t+\t.\tgene_id "G2"; transcript_id "T2"; gene_name "BETA_X";'
+  ), gtf)
+  a <- rsemverse:::.read_annotation(gtf, need_type = FALSE)
+  expect_equal(a$gene_id, c("G1", "G2"))
+  expect_equal(a$gene_name, c("ALPHA", "BETA_X"))
+})
+
+test_that("files written by RSEM 1.3.3 itself (--calc-pme --calc-ci --append-names) are read", {
+  d <- testthat::test_path("fixtures", "rsem-real")
+  rd <- function(e, ...) suppressMessages(rsem_read(d, metadata = NULL, expr = e, id = "original", ...))
+  expect_equal(rd("count")$sampA, c(900, 800, 50, 400))
+  expect_equal(rownames(rd("count")), c("GA_ALPHA", "GB_BETA", "GC_GAMMA", "GD_DELTA_X"))
+  expect_equal(rd("tpm_ci_lower")$sampA, c(410511, 290644, 0, 236636))
+  expect_equal(rd("tpm_cqv")$sampA[[1]], 0.0177118)
+  expect_equal(rd("fpkm_cqv")$sampA[[3]], 0)
+  iso <- suppressMessages(rsem_read(d, metadata = NULL, level = "isoform", expr = "isopct_pme", id = "original"))
+  expect_equal(iso$sampA, c(51.67, 48.33, 100, 0, 100))
+  chk <- suppressMessages(rsem_check(d))
+  expect_equal(unique(chk$severity), "WARNING")
+  expect_equal(unique(chk$check), "zero_effective_length")
+  expect_equal(unique(suppressMessages(rsem_reconcile(d))$n_beyond_rounding), 0L)
+  m <- suppressMessages(rsem_mapping_qc(d, sample_from = "parent_dir"))
+  expect_equal(m$n_total, c(2150, 2150)); expect_equal(m$n_uncertain, c(323, 323)); expect_equal(m$read_type, c(0, 0))
+  p <- suppressMessages(rsem_alignment_profile(d, sample_from = "parent_dir"))
+  expect_equal(p$n_reads[p$sample_id == "sampA"], c(0, 1827, 323, 0))
+  nm <- suppressMessages(rsem_read(d, metadata = NULL, expr = "count", id = "annotation", annotation = file.path(d, "genes.gtf")))
+  expect_equal(rownames(nm), c("ALPHA", "BETA", "GAMMA", "DELTA_X"))
+  expect_equal(nm$sampA, c(900, 800, 50, 400))
+})
+
+test_that("rsem_model_qc reads the .model files RSEM 1.3.3 wrote", {
+  d <- testthat::test_path("fixtures", "rsem-real")
+  q <- suppressMessages(rsem_model_qc(d, sample_from = "parent_dir"))
+  s <- q$sample_summary
+  expect_equal(s$sample_id, c("sampA", "sampB", "sampC"))
+  expect_equal(s$rspd_estimated, c(FALSE, FALSE, TRUE))
+  expect_equal(s$rspd_bins, c(NA, NA, 20L))
+  expect_equal(s$model_type, c(0, 0, 0)); expect_equal(s$forward_prob, c(0.5, 0.5, 0.5))
+  expect_equal(c(s$length_lower[1], s$length_upper[1]), c(49, 250))
+  a <- q$length_distribution[q$length_distribution$sample_id == "sampA", ]
+  expect_equal(nrow(a), 201L); expect_equal(sum(a$probability), 1, tolerance = 1e-6)
+  expect_equal(s$length_mean[1], sum(a$length * a$probability))
+  r <- q$rspd
+  expect_equal(unique(r$sample_id), "sampC"); expect_equal(nrow(r), 20L); expect_equal(sum(r$probability), 1, tolerance = 1e-6)
+})
+
+test_that("rsem_model_qc refuses files that are not .model files", {
+  d <- withr::local_tempdir()
+  f <- file.path(d, "x.model")
+  writeLines(c("0", "", "0.5", "", "9 13 3", "0.1 0.4 0.4 0.1"), f)
+  expect_error(suppressMessages(rsem_model_qc(d)), "span")
+  writeLines(c("0", "", "0.5", "", "9 13 4", "0.1 0.4 0.4 0.5", "0", "0"), f)
+  expect_error(suppressMessages(rsem_model_qc(d)), "add up to 1")
+  writeLines(c("9", "0.5"), f)
+  expect_error(suppressMessages(rsem_model_qc(d)), "model type")
+  writeLines(c("0", "", "0.5", "", "9 13 4", "0.1 0.4 0.4 0.1", "0", "0", "1", "2", "0.25 0.75"), f)
+  ex <- suppressMessages(rsem_model_qc(d))
+  expect_equal(ex$sample_summary$length_mean, sum(10:13 * c(0.1, 0.4, 0.4, 0.1)))
+  expect_equal(ex$sample_summary$length_mode, 11)
+})

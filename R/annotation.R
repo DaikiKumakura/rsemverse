@@ -26,15 +26,23 @@
     a <- a[, c("gene_id", "gene_name", "gene_type")]
   } else if (is.character(annotation) && length(annotation) == 1L && !is.na(annotation)) {
     if (!file.exists(annotation) || dir.exists(annotation)) .stopf("`annotation` must be an existing GTF file: %s", annotation)
-    con <- if (grepl("\\.gz$", annotation)) gzfile(annotation, "r") else file(annotation, "r")
-    on.exit(close(con))
-    lines <- character(0)
-    repeat {
-      chunk <- readLines(con, n = 500000L, warn = FALSE)
-      if (!length(chunk)) break
-      lines <- c(lines, chunk[grepl("^[^#][^\t]*\t[^\t]*\tgene\t", chunk)])
+    pick <- function(feature) {
+      con <- if (grepl("\\.gz$", annotation)) gzfile(annotation, "r") else file(annotation, "r")
+      on.exit(close(con))
+      lines <- character(0)
+      repeat {
+        chunk <- readLines(con, n = 500000L, warn = FALSE)
+        if (!length(chunk)) break
+        lines <- c(lines, chunk[grepl(sprintf("^[^#][^\t]*\t[^\t]*\t%s\t", feature), chunk)])
+      }
+      lines
     }
-    if (!length(lines)) .stopf("No 'gene' rows found in the GTF file %s.", annotation)
+    # RSEM needs only exon rows, so a GTF made for it may have no gene (or transcript) rows:
+    # the gene_id and gene_name of the transcript or exon rows are used then.
+    lines <- pick("gene")
+    if (!length(lines)) lines <- pick("transcript")
+    if (!length(lines)) lines <- pick("exon")
+    if (!length(lines)) .stopf("No 'gene', 'transcript' or 'exon' rows found in the GTF file %s.", annotation)
     attrs <- sub("^([^\t]*\t){8}", "", lines)
     field <- function(keys) {
       out <- rep(NA_character_, length(attrs))
@@ -48,6 +56,7 @@
       gene_id = field("gene_id"), gene_name = field(c("gene_name", "gene")),
       gene_type = field(c("gene_type", "gene_biotype")), stringsAsFactors = FALSE
     )
+    a <- a[!duplicated(a$gene_id), , drop = FALSE]
     if (need_type && all(is.na(a$gene_type))) .stopf("The GTF file has no gene_type or gene_biotype attribute.")
   } else {
     .stopf("`annotation` must be a path to a GTF file or a data frame.")

@@ -445,8 +445,8 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   if (!is.character(data) || length(data) != 1L || is.na(data) || !dir.exists(data)) {
     .stopf("`data` must be an existing directory: %s", toString(data))
   }
-  suffix <- c(gene = ".genes.results", isoform = ".isoforms.results", cnt = ".cnt")[[level]]
-  pattern <- paste0(gsub(".", "\\.", suffix, fixed = TRUE), if (level == "cnt") "$" else "(\\.gz)?$")
+  suffix <- c(gene = ".genes.results", isoform = ".isoforms.results", cnt = ".cnt", model = ".model")[[level]]
+  pattern <- paste0(gsub(".", "\\.", suffix, fixed = TRUE), if (level %in% c("cnt", "model")) "$" else "(\\.gz)?$")
   path <- sort(list.files(data, pattern = pattern, recursive = TRUE), method = "radix")
   if (!length(path)) .stopf("No '*%s' files found under '%s'.", suffix, data)
   if (sample_from == "filename") {
@@ -456,7 +456,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
       .stopf("sample_from = \"parent_dir\" needs every file in its own folder under '%s'; some are directly in it.", data)
     }
     sample_id <- basename(dirname(path))
-    if (level == "cnt") sample_id <- sub("\\.stat$", "", sample_id)  # RSEM writes <name>.stat/<name>.cnt
+    if (level %in% c("cnt", "model")) sample_id <- sub("\\.stat$", "", sample_id)  # RSEM writes <name>.stat/<name>.cnt
   }
   if (anyDuplicated(sample_id)) {
     d <- unique(sample_id[duplicated(sample_id)])
@@ -472,7 +472,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   )
   message(sprintf(
     "%s: found %d files under '%s' (sample ID from the %s):\n%s",
-    if (level == "cnt") "rsem_mapping_qc" else "rsem_read", nrow(out), data, if (sample_from == "filename") "file name" else "folder name",
+    if (level == "cnt") "rsem_mapping_qc" else if (level == "model") "rsem_model_qc" else "rsem_read", nrow(out), data, if (sample_from == "filename") "file name" else "folder name",
     paste(sprintf("  %s <- %s", out$sample_id, out$ref), collapse = "\n")
   ))
   out

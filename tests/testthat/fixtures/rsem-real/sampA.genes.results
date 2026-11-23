@@ -1,0 +1,5 @@
+gene_id	transcript_id(s)	length	effective_length	expected_count	TPM	FPKM	posterior_mean_count	posterior_standard_deviation_of_count	pme_TPM	pme_FPKM	TPM_ci_lower_bound	TPM_ci_upper_bound	TPM_coefficient_of_quartile_variation	FPKM_ci_lower_bound	FPKM_ci_upper_bound	FPKM_coefficient_of_quartile_variation
+GA_ALPHA	GA.1,GA.2	755.31	606.31	900.00	431942.37	706855.23	900.00	0.00	432166.94	707455.33	410511	454345	0.0177118	670348	746075	0.018494
+GB_BETA	GB.1	900.00	751.00	800.00	309974.58	507260.16	800.00	0.00	309676.39	506928.66	290644	328609	0.0211946	479919	534693	0.0186696
+GC_GAMMA	GC.1	60.00	0.00	50.00	0.00	0.00	50.00	0.00	0.00	0.00	0	0	0	0	0	0
+GD_DELTA_X	GD.1	600.00	451.00	400.00	258083.05	422341.89	400.00	0.00	258156.67	422592.80	236636	278638	0.027872	385485	459967	0.0302584

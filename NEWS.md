@@ -1,3 +1,29 @@
+# rsemverse 0.7.1
+
+Checked against the output of RSEM itself.
+
+## New function
+
+* `rsem_model_qc()` reads the `.model` files: the fragment (or read) length distribution with its mean,
+  standard deviation and mode, the strand probability, and the read start position distribution when RSEM
+  estimated it (`--estimate-rspd`).
+
+## Changes
+
+* `rsem_read(id = "annotation")` and the GTF functions take names and types from the transcript or exon rows
+  when the GTF has no gene rows (RSEM needs only exon rows).
+
+## Checked against RSEM's own output
+
+RSEM 1.3.3 was built and run (`--calc-pme --calc-ci --append-names`, and `--estimate-rspd`) on a toy data
+set; its files are in `tests/testthat/fixtures/rsem-real/`. All new columns, the `.cnt` file, the `.model`
+file and the names after `--append-names` are read from them in the tests. Two things the
+documentation did not say: the coefficient of quartile variation of a gene without reads is written as 0
+(not nan), and the number of RSPD bins and their probabilities follow the RSPD flag in the `.model` file
+only when the RSPD was estimated.
+
+Not done: the `.theta` file (its noise fraction) and the sequencing error sections of the `.model`.
+
 # rsemverse 0.7.0
 
 Found by comparing the package with the RSEM documentation and source and with public
@@ -38,8 +64,6 @@ workflows (100 searches, November 23, 2026).
   unless the values are log2.
 * `rsem_write(format = "gct")` writes the GCT 1.2 format of GSEA and ssGSEA.
 
-Not done: a parser for the `.model` and `.theta` files and the real-file check of the posterior
-columns and `.cnt` files, because RSEM could not be run here.
 
 # rsemverse 0.6.2
 
