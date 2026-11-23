@@ -27,13 +27,18 @@ rsem_read(
 function stops if the gene IDs are of the other species. Not used with
 \code{id = "original"}, which works for any organism.}
 
-\item{expr}{\code{"count"} (\code{expected_count}), \code{"tpm"} (\code{TPM}), \code{"length"}
-(\code{effective_length}) or, for transcripts, \code{"isopct"} (\code{IsoPct}); with
-\code{--calc-pme} or \code{--calc-ci} also the posterior values \code{"pme_count"}
-(\code{posterior_mean_count}), \code{"pme_tpm"} (\code{pme_TPM}), \code{"count_sd"}
-(\code{posterior_standard_deviation_of_count}), \code{"tpm_ci_lower"} and
-\code{"tpm_ci_upper"} (the 95\% credibility interval of the TPM). See
-Posterior estimates. Required.}
+\item{expr}{\code{"count"} (\code{expected_count}), \code{"tpm"} (\code{TPM}), \code{"fpkm"}
+(\code{FPKM}), \code{"length"} (\code{effective_length}) or, for transcripts, \code{"isopct"}
+(\code{IsoPct}); with \code{--calc-pme} or \code{--calc-ci} also the posterior values
+\code{"pme_count"} (\code{posterior_mean_count}), \code{"pme_tpm"} (\code{pme_TPM}),
+\code{"pme_fpkm"} (\code{pme_FPKM}), \code{"count_sd"}
+(\code{posterior_standard_deviation_of_count}) and, for transcripts,
+\code{"isopct_pme"} (\code{IsoPct_from_pme_TPM}); with \code{--calc-ci} the credibility
+interval \code{"tpm_ci_lower"}, \code{"tpm_ci_upper"}, \code{"fpkm_ci_lower"},
+\code{"fpkm_ci_upper"} and the coefficient of quartile variation \code{"tpm_cqv"},
+\code{"fpkm_cqv"} (\code{(Q3 - Q1) / (Q3 + Q1)} of the posterior samples; the
+level of the interval is set by \code{--ci-credibility-level}, 95\% by default,
+and is not recorded in the file). See Posterior estimates. Required.}
 
 \item{level}{\code{"gene"} (\verb{*.genes.results}, the default) or \code{"isoform"}
 (\verb{*.isoforms.results}).}
@@ -170,12 +175,14 @@ instead of stopping at the first.
 \section{Posterior estimates}{
 
 With \code{--calc-pme} or \code{--calc-ci}, RSEM adds posterior means, their standard
-deviation and 95\% credibility intervals. \code{"pme_count"} and \code{"pme_tpm"} are
-posterior means and add up over rows like counts. The standard deviation
-and the interval bounds do not add up (the interval of a sum is not the sum
+deviation and credibility intervals. \code{"pme_count"}, \code{"pme_tpm"} and
+\code{"pme_fpkm"} are posterior means and add up over rows like counts. The
+standard deviation, the interval bounds, the coefficient of quartile
+variation and \code{"isopct_pme"} do not add up (the interval of a sum is not the sum
 of the intervals), so they need \code{id = "original"} or \code{level = "isoform"}
 and are never merged. A file without the column stops with the option to
-use.
+use. A coefficient of quartile variation that RSEM could not compute (both
+quartiles are 0, written as \code{nan}) is \code{NA}.
 }
 
 \section{Effective length}{
@@ -196,7 +203,8 @@ results; replacing 0 by 1 changes the length offset of those genes. See
 
 With \code{level = "isoform"}, the \verb{*.isoforms.results} files are read; rows are
 transcript IDs as in the file and are never merged. \code{expr} can also be
-\code{"isopct"} (the transcript's share of its gene's abundance, in percent).
+\code{"isopct"} (the transcript's share of its gene's abundance, in percent) and
+\code{"isopct_pme"} (the same from the posterior mean TPM).
 The attribute \code{"tx2gene"} holds the transcript-to-gene table
 (\code{transcript_id}, \code{gene_id}, and \code{gene}: the symbol with \code{id = "symbol"},
 else the \code{gene_id}), which \code{\link[=rsem_select_isoforms]{rsem_select_isoforms()}} uses.

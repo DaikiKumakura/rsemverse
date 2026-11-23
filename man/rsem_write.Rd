@@ -4,14 +4,20 @@
 \alias{rsem_write}
 \title{Write the table with gene IDs and annotation}
 \usage{
-rsem_write(x, file, ids = attr(x, "gene_ids", exact = TRUE), annotation = NULL)
+rsem_write(
+  x,
+  file,
+  ids = attr(x, "gene_ids", exact = TRUE),
+  annotation = NULL,
+  format = "tsv"
+)
 }
 \arguments{
 \item{x}{The gene by sample table. Missing values, such as the \code{NA} that
 \code{\link[=rsem_apply_reference]{rsem_apply_reference()}} gives a gene with no spread in the reference, are
 written as \code{NA}.}
 
-\item{file}{Output path (\code{.tsv} or \code{.tsv.gz}).}
+\item{file}{Output path (\code{.tsv} or \code{.tsv.gz}, or \code{.gct} with \code{format = "gct"}).}
 
 \item{ids}{The attribute \code{"gene_ids"} of the table \code{\link[=rsem_read]{rsem_read()}} returned,
 \code{attr(tpm, "gene_ids")}: adds the column \code{gene_id} with the original IDs
@@ -22,6 +28,13 @@ take it from the table \code{\link[=rsem_read]{rsem_read()}} gave. By default th
 
 \item{annotation}{Optional GTF file or data frame, as in
 \code{\link[=rsem_biotype_profile]{rsem_biotype_profile()}}: adds the column \code{gene_type}.}
+
+\item{format}{\code{"tsv"} (the default) or \code{"gct"}: the GCT 1.2 format that GSEA,
+ssGSEA and GenePattern read (the lines \verb{#1.2} and the numbers of genes and
+samples, then \code{Name} (the gene), \code{Description} (\code{NA}) and one column per
+sample). Values are written as they are: GSEA expects normalized values
+(not raw counts), and ssGSEA gene-level TPM. The gene IDs and the gene
+type are not written in the GCT file.}
 }
 \value{
 \code{file}, invisibly.

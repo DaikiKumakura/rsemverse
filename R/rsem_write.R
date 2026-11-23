@@ -9,7 +9,13 @@
 #' @param x The gene by sample table. Missing values, such as the `NA` that
 #'   [rsem_apply_reference()] gives a gene with no spread in the reference, are
 #'   written as `NA`.
-#' @param file Output path (`.tsv` or `.tsv.gz`).
+#' @param file Output path (`.tsv` or `.tsv.gz`, or `.gct` with `format = "gct"`).
+#' @param format `"tsv"` (the default) or `"gct"`: the GCT 1.2 format that GSEA,
+#'   ssGSEA and GenePattern read (the lines `#1.2` and the numbers of genes and
+#'   samples, then `Name` (the gene), `Description` (`NA`) and one column per
+#'   sample). Values are written as they are: GSEA expects normalized values
+#'   (not raw counts), and ssGSEA gene-level TPM. The gene IDs and the gene
+#'   type are not written in the GCT file.
 #' @param ids The attribute `"gene_ids"` of the table [rsem_read()] returned,
 #'   `attr(tpm, "gene_ids")`: adds the column `gene_id` with the original IDs
 #'   of each row, joined by `";"` where several IDs were summed into one
@@ -27,9 +33,20 @@
 #' rsem_write(x, f)
 #' readLines(f)
 #' @export
-rsem_write <- function(x, file, ids = attr(x, "gene_ids", exact = TRUE), annotation = NULL) {
+rsem_write <- function(x, file, ids = attr(x, "gene_ids", exact = TRUE), annotation = NULL, format = "tsv") {
   if (!is.character(file) || length(file) != 1L || is.na(file) || !nzchar(file)) .stopf("`file` must be a file path.")
+  format <- .choice(format, c("tsv", "gct"), "format")
   m <- .expr_matrix(x, nonnegative = FALSE, allow_na = TRUE)
+  if (format == "gct") {
+    if (grepl("\\.gz$", file)) .stopf("A GCT file is written as plain text; use a file name ending in .gct.")
+    con <- file(file, "w")
+    on.exit(close(con))
+    writeLines(c("#1.2", paste(nrow(m), ncol(m), sep = "	"), paste(c("Name", "Description", colnames(m)), collapse = "	")), con)
+    body <- data.frame(Name = rownames(m), Description = "NA", as.data.frame(m, check.names = FALSE), check.names = FALSE, stringsAsFactors = FALSE)
+    utils::write.table(body, con, sep = "	", quote = FALSE, row.names = FALSE, col.names = FALSE, na = "NA")
+    message(sprintf("rsem_write: %s genes x %d samples to %s (GCT 1.2)", .fmt(nrow(m)), ncol(m), file))
+    return(invisible(file))
+  }
   out <- data.frame(gene = rownames(m), stringsAsFactors = FALSE)
   if (!is.null(ids)) {
     if (!is.data.frame(ids) || !all(c("gene", "gene_id") %in% names(ids))) {

@@ -29,7 +29,8 @@
 #'   (`isoform_genes_missing`), and `transcript_mapping_mismatch`, the number of
 #'   genes whose `transcript_id(s)` in the gene file are not the transcripts of
 #'   that gene in the isoform file (a change of reference that the sums cannot
-#'   show). Samples found in only one of the folders are
+#'   show), and `transcript_mapping_checked`, `FALSE` when the gene file has no
+#'   `transcript_id(s)` column so that this comparison could not be made. Samples found in only one of the folders are
 #'   reported as a stop.
 #' @examples
 #' \dontrun{
@@ -90,7 +91,8 @@ rsem_reconcile <- function(data = "data", isoform_data = data,
     # The transcripts that the gene file lists for a gene must be the transcripts
     # of that gene in the isoform file, whatever the values.
     tx_mismatch <- 0L
-    if ("transcript_id(s)" %in% names(G)) {
+    tx_checked <- "transcript_id(s)" %in% names(G)
+    if (tx_checked) {
       listed <- strsplit(G[["transcript_id(s)"]][match(common, G$gene_id)], ",", fixed = TRUE)
       in_iso <- split(I$transcript_id, factor(I$gene_id, levels = common))
       tx_mismatch <- sum(!mapply(function(a, b) setequal(a, b), listed, in_iso[common]))
@@ -108,7 +110,7 @@ rsem_reconcile <- function(data = "data", isoform_data = data,
         max_abs_diff = if (length(d)) max(d) else NA_real_,
         worst_gene = if (length(d)) common[[which.max(d - bound)]] else NA_character_,
         genes_without_isoforms = length(only_gene), isoform_genes_missing = length(only_iso),
-        transcript_mapping_mismatch = tx_mismatch,
+        transcript_mapping_mismatch = tx_mismatch, transcript_mapping_checked = tx_checked,
         stringsAsFactors = FALSE
       )
     }
@@ -121,5 +123,9 @@ rsem_reconcile <- function(data = "data", isoform_data = data,
     "rsem_reconcile: %d samples, %s; %d of %d sample-column checks are not explained by rounding",
     nrow(g), paste(columns, collapse = ", "), sum(bad), nrow(out)
   ))
+  if (!all(out$transcript_mapping_checked)) {
+    message("  the transcripts of each gene were not compared for ", sum(!out$transcript_mapping_checked) / length(columns),
+            " sample(s): the gene file has no 'transcript_id(s)' column")
+  }
   out
 }

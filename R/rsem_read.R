@@ -97,12 +97,14 @@
 #'
 #' @section Posterior estimates:
 #' With `--calc-pme` or `--calc-ci`, RSEM adds posterior means, their standard
-#' deviation and 95% credibility intervals. `"pme_count"` and `"pme_tpm"` are
-#' posterior means and add up over rows like counts. The standard deviation
-#' and the interval bounds do not add up (the interval of a sum is not the sum
+#' deviation and credibility intervals. `"pme_count"`, `"pme_tpm"` and
+#' `"pme_fpkm"` are posterior means and add up over rows like counts. The
+#' standard deviation, the interval bounds, the coefficient of quartile
+#' variation and `"isopct_pme"` do not add up (the interval of a sum is not the sum
 #' of the intervals), so they need `id = "original"` or `level = "isoform"`
 #' and are never merged. A file without the column stops with the option to
-#' use.
+#' use. A coefficient of quartile variation that RSEM could not compute (both
+#' quartiles are 0, written as `nan`) is `NA`.
 #'
 #' @section Effective length:
 #' `expr = "length"` reads `effective_length`. RSEM sets it to 0 for a
@@ -119,7 +121,8 @@
 #' @section Transcripts:
 #' With `level = "isoform"`, the `*.isoforms.results` files are read; rows are
 #' transcript IDs as in the file and are never merged. `expr` can also be
-#' `"isopct"` (the transcript's share of its gene's abundance, in percent).
+#' `"isopct"` (the transcript's share of its gene's abundance, in percent) and
+#' `"isopct_pme"` (the same from the posterior mean TPM).
 #' The attribute `"tx2gene"` holds the transcript-to-gene table
 #' (`transcript_id`, `gene_id`, and `gene`: the symbol with `id = "symbol"`,
 #' else the `gene_id`), which [rsem_select_isoforms()] uses.
@@ -130,13 +133,18 @@
 #' @param species `"human"` or `"mouse"`. Required with `id = "symbol"`; the
 #'   function stops if the gene IDs are of the other species. Not used with
 #'   `id = "original"`, which works for any organism.
-#' @param expr `"count"` (`expected_count`), `"tpm"` (`TPM`), `"length"`
-#'   (`effective_length`) or, for transcripts, `"isopct"` (`IsoPct`); with
-#'   `--calc-pme` or `--calc-ci` also the posterior values `"pme_count"`
-#'   (`posterior_mean_count`), `"pme_tpm"` (`pme_TPM`), `"count_sd"`
-#'   (`posterior_standard_deviation_of_count`), `"tpm_ci_lower"` and
-#'   `"tpm_ci_upper"` (the 95% credibility interval of the TPM). See
-#'   Posterior estimates. Required.
+#' @param expr `"count"` (`expected_count`), `"tpm"` (`TPM`), `"fpkm"`
+#'   (`FPKM`), `"length"` (`effective_length`) or, for transcripts, `"isopct"`
+#'   (`IsoPct`); with `--calc-pme` or `--calc-ci` also the posterior values
+#'   `"pme_count"` (`posterior_mean_count`), `"pme_tpm"` (`pme_TPM`),
+#'   `"pme_fpkm"` (`pme_FPKM`), `"count_sd"`
+#'   (`posterior_standard_deviation_of_count`) and, for transcripts,
+#'   `"isopct_pme"` (`IsoPct_from_pme_TPM`); with `--calc-ci` the credibility
+#'   interval `"tpm_ci_lower"`, `"tpm_ci_upper"`, `"fpkm_ci_lower"`,
+#'   `"fpkm_ci_upper"` and the coefficient of quartile variation `"tpm_cqv"`,
+#'   `"fpkm_cqv"` (`(Q3 - Q1) / (Q3 + Q1)` of the posterior samples; the
+#'   level of the interval is set by `--ci-credibility-level`, 95% by default,
+#'   and is not recorded in the file). See Posterior estimates. Required.
 #' @param level `"gene"` (`*.genes.results`, the default) or `"isoform"`
 #'   (`*.isoforms.results`).
 #' @param id `"symbol"` (the default), `"original"` (the IDs of the file) or
@@ -184,7 +192,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   # used and any organism works
   species <- if (id != "symbol") NULL else .choice(species, c("human", "mouse"), "species")
   level <- .choice(level, c("gene", "isoform"), "level")
-  expr <- .choice(expr, c(setdiff(.read_exprs, "isopct"), if (level == "isoform") "isopct"), "expr")
+  expr <- .choice(expr, c(setdiff(.read_exprs, .isoform_only), if (level == "isoform") .isoform_only), "expr")
   column <- .read_columns[[expr]]
   if (!is.logical(validate_reference) || length(validate_reference) != 1L || is.na(validate_reference)) .stopf("`validate_reference` must be TRUE or FALSE.")
   if (!is.logical(allow_reorder) || length(allow_reorder) != 1L || is.na(allow_reorder)) .stopf("`allow_reorder` must be TRUE or FALSE.")
@@ -202,7 +210,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
   if (expr %in% .posterior_exprs && !column %in% .rsem_header(samples$path[[1L]])) {
     .stopf(
       "%s has no column '%s'; run rsem-calculate-expression with %s.", samples$ref[[1L]], column,
-      if (expr %in% .not_additive && expr != "count_sd") "--calc-ci" else "--calc-pme or --calc-ci"
+      if (expr %in% .needs_calc_ci) "--calc-ci" else "--calc-pme or --calc-ci"
     )
   }
   ann <- if (id == "annotation") .read_annotation(annotation, need_type = FALSE) else NULL
@@ -273,13 +281,27 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
 # (like counts and TPM) add up over rows, standard deviations and interval
 # bounds do not.
 .read_columns <- list(
-  count = "expected_count", tpm = "TPM", length = "effective_length", isopct = "IsoPct",
-  pme_count = "posterior_mean_count", pme_tpm = "pme_TPM", count_sd = "posterior_standard_deviation_of_count",
-  tpm_ci_lower = "TPM_ci_lower_bound", tpm_ci_upper = "TPM_ci_upper_bound"
+  count = "expected_count", tpm = "TPM", fpkm = "FPKM", length = "effective_length", isopct = "IsoPct",
+  pme_count = "posterior_mean_count", pme_tpm = "pme_TPM", pme_fpkm = "pme_FPKM",
+  count_sd = "posterior_standard_deviation_of_count",
+  tpm_ci_lower = "TPM_ci_lower_bound", tpm_ci_upper = "TPM_ci_upper_bound",
+  fpkm_ci_lower = "FPKM_ci_lower_bound", fpkm_ci_upper = "FPKM_ci_upper_bound",
+  tpm_cqv = "TPM_coefficient_of_quartile_variation", fpkm_cqv = "FPKM_coefficient_of_quartile_variation",
+  isopct_pme = "IsoPct_from_pme_TPM"
 )
 .read_exprs <- names(.read_columns)
-.posterior_exprs <- c("pme_count", "pme_tpm", "count_sd", "tpm_ci_lower", "tpm_ci_upper")
-.not_additive <- c("count_sd", "tpm_ci_lower", "tpm_ci_upper")
+.posterior_exprs <- c(
+  "pme_count", "pme_tpm", "pme_fpkm", "count_sd", "tpm_ci_lower", "tpm_ci_upper", "fpkm_ci_lower", "fpkm_ci_upper",
+  "tpm_cqv", "fpkm_cqv", "isopct_pme"
+)
+# Cannot be summed over rows that share a name (a sum of intervals, deviations,
+# quartile variations or percentages is not the value of the sum).
+.not_additive <- c(
+  "count_sd", "tpm_ci_lower", "tpm_ci_upper", "fpkm_ci_lower", "fpkm_ci_upper", "tpm_cqv", "fpkm_cqv", "isopct_pme"
+)
+# Written only with --calc-ci (the others with --calc-pme or --calc-ci).
+.needs_calc_ci <- c("tpm_ci_lower", "tpm_ci_upper", "fpkm_ci_lower", "fpkm_ci_upper", "tpm_cqv", "fpkm_cqv")
+.isoform_only <- c("isopct", "isopct_pme")
 
 # Name of each row from an annotation (gene_id -> gene_name). A file ID matches
 # the annotation exactly or after its Ensembl version is dropped. An ID with
@@ -473,10 +495,16 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
       .stopf("%s is missing the column(s): %s", label, paste(missing_cols, collapse = ", "))
     }
 
-    x <- suppressWarnings(.fread_rsem(samples$path[[i]], select = required, colClasses = classes))
+    # (Q3 - Q1) / (Q3 + Q1) is not defined when both quartiles are 0; such a value
+    # (written as nan) is kept as NA for the coefficient of quartile variation only.
+    nan_ok <- grepl("coefficient_of_quartile_variation$", column)
+    x <- suppressWarnings(.fread_rsem(
+      samples$path[[i]], select = required, colClasses = classes,
+      na.strings = if (nan_ok) c("NA", "nan", "-nan", "NaN", "-NaN") else "NA"
+    ))
     if (!is.numeric(x[[column]])) .stopf("%s has non-numeric values in '%s'.", label, column)
-    if (anyNA(x[[column]]) || anyNA(x[[key]])) .stopf("%s contains missing values.", label)
-    if (any(!is.finite(x[[column]])) || any(x[[column]] < 0)) {
+    if ((!nan_ok && anyNA(x[[column]])) || anyNA(x[[key]])) .stopf("%s contains missing values.", label)
+    if (any(is.infinite(x[[column]])) || any(x[[column]] < 0, na.rm = TRUE)) {
       .stopf("%s has infinite or negative values in '%s' (RSEM writes none); the file may be damaged. rsem_check() lists the rows.", label, column)
     }
     if (anyDuplicated(x[[key]])) .stopf("%s contains duplicated %s values.", label, key)

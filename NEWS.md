@@ -1,3 +1,46 @@
+# rsemverse 0.7.0
+
+Found by comparing the package with the RSEM documentation and source and with public
+workflows (100 searches, November 23, 2026).
+
+## New functions
+
+* `rsem_import()` reads several values of the same files at once (expected count, TPM and
+  effective length by default) into tables with the same genes and samples, and
+  `rsem_as_tximport()` turns them into the list that `DESeq2::DESeqDataSetFromTximport()`
+  takes, without changing a value. On the six ENCODE K562 runs it equals
+  `tximport::tximport(type = "rsem", txIn = FALSE)` (largest difference 0 for counts and
+  lengths). Genes with an effective length of 0 stop it unless `zero_length = "drop"` or
+  `"keep"` is chosen; rows that combine several gene IDs are refused.
+* `rsem_alignment_profile()` returns the histogram of alignments per read that follows the
+  first three lines of a `.cnt` file (the number of reads with 0, 1, 2, ... alignments).
+
+## Changes
+
+* `rsem_read()` also reads `FPKM`, `pme_FPKM`, `FPKM_ci_lower_bound`, `FPKM_ci_upper_bound`,
+  `TPM_coefficient_of_quartile_variation`, `FPKM_coefficient_of_quartile_variation` and, for
+  transcripts, `IsoPct_from_pme_TPM` (`expr = "fpkm"`, `"pme_fpkm"`, `"fpkm_ci_lower"`,
+  `"fpkm_ci_upper"`, `"tpm_cqv"`, `"fpkm_cqv"`, `"isopct_pme"`). The interval, quartile
+  variation and percentage cannot be summed and need `id = "original"`. A quartile variation
+  that RSEM could not compute (written as nan) is `NA`. FPKM equals `1e3 / l_bar * TPM` of the
+  documentation on the ENCODE files (median ratio 1.0000).
+* `rsem_check()` reports posterior columns with missing, infinite or negative values and an
+  interval whose lower bound is above its upper bound, and, for transcript files, a
+  transcript whose sequence length differs from the first file (the gene-level length is an
+  abundance-weighted mean and may differ). On the ENCODE transcript files no length differs.
+* `rsem_reconcile()` has the column `transcript_mapping_checked`, and says when the gene file
+  has no `transcript_id(s)` column, so that the transcripts could not be compared.
+* `rsem_mapping_qc()` stops on an infinite value, a read type other than 0 to 3 and more
+  uncertain reads than alignable reads, and no longer prints `Inf` when no sample has
+  alignable reads.
+* `rsem_sample_qc()` adds `rle_median` and `rle_iqr` to `sample_summary`: relative log
+  expression (the deviation of a sample's log2 values from the median of each gene), `NA`
+  unless the values are log2.
+* `rsem_write(format = "gct")` writes the GCT 1.2 format of GSEA and ssGSEA.
+
+Not done: a parser for the `.model` and `.theta` files and the real-file check of the posterior
+columns and `.cnt` files, because RSEM could not be run here.
+
 # rsemverse 0.6.2
 
 ## Changes

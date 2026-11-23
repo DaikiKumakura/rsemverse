@@ -96,7 +96,7 @@ rsem_check <- function(data = "data", metadata = NULL, level = "gene", sample_fr
     }
     id_cols <- intersect(c(key, second), header)
     x <- tryCatch(
-      suppressWarnings(.fread_rsem(path, colClasses = list(character = id_cols))),
+      suppressWarnings(.fread_rsem(path, colClasses = list(character = id_cols), na.strings = c("NA", "nan", "-nan", "NaN", "-NaN"))),
       error = function(e) NULL
     )
     if (is.null(x)) {
@@ -135,8 +135,33 @@ rsem_check <- function(data = "data", metadata = NULL, level = "gene", sample_fr
       if (col == "expected_count" && !anyNA(v) && sum(v) == 0) add("WARNING", "no_counts", sid, "the expected counts are 0 for every row")
     }
 
+    # Posterior columns written by --calc-pme / --calc-ci: finite, not negative; a lower bound
+    # must not be above its upper bound. (A coefficient of quartile variation can be nan.)
+    post_cols <- intersect(unlist(.read_columns[.posterior_exprs], use.names = FALSE), names(x))
+    for (col in post_cols) {
+      v <- x[[col]]
+      if (!is.numeric(v)) {
+        add("ERROR", "posterior_values", sid, sprintf("column '%s' is not numeric", col))
+        next
+      }
+      nan_ok <- grepl("coefficient_of_quartile_variation$", col)
+      if (!nan_ok && anyNA(v)) add("ERROR", "posterior_values", sid, sprintf("column '%s' has missing values", col), sum(is.na(v)))
+      if (any(is.infinite(v)) || any(v < 0, na.rm = TRUE)) {
+        add("ERROR", "posterior_values", sid, sprintf("column '%s' has infinite or negative values", col), sum(is.infinite(v) | v < 0, na.rm = TRUE))
+      }
+    }
+    for (pair in list(c("TPM_ci_lower_bound", "TPM_ci_upper_bound"), c("FPKM_ci_lower_bound", "FPKM_ci_upper_bound"))) {
+      if (all(pair %in% names(x)) && is.numeric(x[[pair[[1L]]]]) && is.numeric(x[[pair[[2L]]]])) {
+        bad <- sum(x[[pair[[1L]]]] > x[[pair[[2L]]]], na.rm = TRUE)
+        if (bad) add("ERROR", "posterior_interval", sid, sprintf("%s is above %s for %d rows", pair[[1L]], pair[[2L]], bad), bad)
+      }
+    }
+
     if (is.null(ref)) {
-      ref <- list(ids = ids, second = if (second %in% names(x)) x[[second]] else NULL, ref = samples$ref[[i]], sid = sid)
+      ref <- list(
+        ids = ids, second = if (second %in% names(x)) x[[second]] else NULL, ref = samples$ref[[i]], sid = sid,
+        length = if (level == "isoform" && "length" %in% names(x) && is.numeric(x[["length"]])) x[["length"]] else NULL
+      )
       next
     }
     if (!identical(ids, ref$ids)) {
@@ -150,6 +175,19 @@ rsem_check <- function(data = "data", metadata = NULL, level = "gene", sample_fr
         next
       }
       add("INFO", "id_order", sid, sprintf("the same IDs as %s in a different order; rsem_read(allow_reorder = TRUE) accepts this", ref$ref))
+    }
+    # The sequence length of a transcript is a property of the reference, not of the sample
+    # (the gene-level length is an abundance-weighted mean and does vary), so a transcript
+    # whose length differs from the first file comes from another sequence.
+    if (level == "isoform" && !is.null(ref$length) && "length" %in% names(x) && is.numeric(x[["length"]])) {
+      len_here <- x[["length"]][match(ref$ids, ids)]
+      diff_len <- which(abs(len_here - ref$length) > 0.5)
+      if (length(diff_len)) {
+        add("ERROR", "transcript_length", sid, sprintf(
+          "the length of %d transcripts differs from %s (e.g. %s: %s vs %s): the files seem to come from different references",
+          length(diff_len), ref$ref, ref$ids[[diff_len[[1L]]]], format(len_here[[diff_len[[1L]]]]), format(ref$length[[diff_len[[1L]]]])
+        ), length(diff_len))
+      }
     }
     if (second %in% names(x) && !is.null(ref$second)) {
       here <- x[[second]][match(ref$ids, ids)]

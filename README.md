@@ -320,6 +320,16 @@ the isoform file of another ENCODE sample, 20,405 of 59,526 genes exceeded the
 bound, against none for the correct pairs), truncated files, and files from
 different references.
 
+### Several values at once, and DESeq2: `rsem_import()`, `rsem_as_tximport()`
+
+`rsem_import("rsem", assays = c("count", "tpm", "length"))` reads the three values that
+differential expression needs into tables with the same genes and samples, and
+`rsem_as_tximport()` gives the list that `DESeqDataSetFromTximport()` takes (equal to
+`tximport::tximport(type = "rsem", txIn = FALSE)` on the ENCODE files). Genes with an effective
+length of 0 stop it, as they stop DESeq2; `zero_length = "drop"` removes them, and the number of
+lost counts is printed. For other values, `rsem_read()` also reads FPKM, the posterior FPKM, the
+FPKM interval and the coefficient of quartile variation of `--calc-ci`.
+
 ### Which IDs were merged: `rsem_id_report()`
 
 `rsem_read()` sums rows with the same symbol. `rsem_id_report(x)` lists the rows

@@ -34,7 +34,8 @@ file (\code{genes_without_isoforms}) or only in the isoform file
 (\code{isoform_genes_missing}), and \code{transcript_mapping_mismatch}, the number of
 genes whose \code{transcript_id(s)} in the gene file are not the transcripts of
 that gene in the isoform file (a change of reference that the sums cannot
-show). Samples found in only one of the folders are
+show), and \code{transcript_mapping_checked}, \code{FALSE} when the gene file has no
+\code{transcript_id(s)} column so that this comparison could not be made. Samples found in only one of the folders are
 reported as a stop.
 }
 \description{

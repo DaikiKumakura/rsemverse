@@ -4,7 +4,7 @@ test_that("arguments are required and checked", {
   expect_error(rsem_read(d, m, expr = "count"), "`species` must be")
   expect_error(rsem_read(d, m, species = "human"), "`expr` must be")
   expect_error(rsem_read(d, m, species = "rat", expr = "count"), "`species` must be one of")
-  expect_error(rsem_read(d, m, species = "human", expr = "fpkm"), "`expr` must be one of")
+  expect_error(rsem_read(d, m, species = "human", expr = "rpkm"), "`expr` must be one of")
   expect_error(rsem_read(d, m, species = c("human", "mouse"), expr = "count"), "`species` must be one of")
   expect_error(rsem_read("no-such-dir", m, species = "human", expr = "count"), "existing directory")
   expect_error(rsem_read(d, "no-such.csv", species = "human", expr = "count"), "existing CSV")

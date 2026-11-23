@@ -130,3 +130,16 @@ On the same six ENCODE K562 runs with their transcript files:
 | Isoform file of another sample under one sample's name | 20,405 of 59,526 genes beyond the bound for that sample, none for the others |
 | `rsem_id_report()` with `org.Hs.eg.db` | 89 rows combine several gene IDs (largest: 7) |
 | TPM total of a run | within 0.1 of 1e6 |
+
+## 0.7.0 (`validation/encode-k562-0.7.0.R`, November 23, 2026)
+
+On the same six ENCODE K562 runs:
+
+| Check | Result |
+|---|---|
+| `rsem_read(expr = "fpkm")` against `1e3 / l_bar * TPM` (documentation) | median ratio 1.0000 in all six samples (genes with TPM > 10) |
+| `rsem_check(level = "isoform")`, transcript lengths | no transcript has another length in any file |
+| `rsem_as_tximport(zero_length = "drop")` against `tximport(type = "rsem")` | counts and lengths identical (difference 0); 53,570 of 59,526 genes remain (5,908 to 5,956 per sample have effective length 0) |
+| `rsem_sample_qc()` relative log expression | median -0.025 to 0.020, IQR 0.28 to 0.39 |
+
+Not run on real data: the posterior columns (`--calc-pme`, `--calc-ci`), the coefficient of quartile variation (and how RSEM writes an undefined one), `.cnt` histograms, `.model` and `.theta` files.

@@ -43,11 +43,13 @@ the reference, which includes ambiguity between isoforms of the same gene,
 so it is not a subset of \code{nMulti}; \code{nHits}, the total number of alignments;
 and the read type (0 single-end without quality, 1 single-end with quality,
 2 paired-end without quality, 3 paired-end with quality). The histogram of
-alignments per read that follows in the file is not used.
+alignments per read that follows in the file is read by
+\code{\link[=rsem_alignment_profile]{rsem_alignment_profile()}}.
 
 A file that breaks these identities (\code{N_tot} is not \code{N0 + N1 + N2}, or
-\code{nUnique + nMulti} is not \code{N1}) stops the function instead of returning
-numbers that cannot be right.
+\code{nUnique + nMulti} is not \code{N1}), has an infinite value, a read type other
+than 0 to 3, or more uncertain reads than alignable reads, stops the
+function instead of returning numbers that cannot be right.
 }
 
 \section{Files}{

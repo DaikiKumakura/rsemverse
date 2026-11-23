@@ -20,6 +20,8 @@ reference:
     desc: "RSEM files and a sample table in, one gene symbol by sample table out."
     contents:
       - rsem_read
+      - rsem_import
+      - rsem_as_tximport
   - title: "Step 2: Filter"
     desc: "See what each threshold keeps, then remove lowly expressed genes or keep the most variable ones."
     contents:
@@ -34,6 +36,7 @@ reference:
       - rsem_reconcile
       - rsem_id_report
       - rsem_mapping_qc
+      - rsem_alignment_profile
       - rsem_sample_qc
   - title: "Step 4: Normalize"
     desc: "Make samples comparable: CPM, TMM, upper quartile, DESeq2, quantile."

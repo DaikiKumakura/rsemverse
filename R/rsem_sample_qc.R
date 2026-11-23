@@ -62,7 +62,12 @@
 #'   * `sample_summary`: per sample `total` (sum of the values), `detected_genes`
 #'     and `detected_share` (of all genes in `x`), `median_correlation`,
 #'     `min_correlation` and `most_similar` (the sample with the highest
-#'     correlation) and the metadata columns;
+#'     correlation), `rle_median` and `rle_iqr` (relative log expression: the
+#'     median and the interquartile range of the deviations of a sample's log2
+#'     values from the median of each gene over the samples, for genes detected
+#'     in at least one sample; around 0 and similar between samples for
+#'     comparable libraries; `NA` unless the values are log2) and the metadata
+#'     columns;
 #'   * `parameters`: the settings and the numbers of genes used.
 #'
 #' @examples
@@ -139,12 +144,26 @@ rsem_sample_qc <- function(x, metadata = NULL, transform = "log2", pseudocount =
   cmat[, flat] <- NA_real_
   off <- cmat
   diag(off) <- NA_real_
+  # Relative log expression (Gandolfo & Speed 2018): the deviation of each gene in a sample from
+  # the median of that gene over the samples, on the log scale; the boxes of clean data sit at 0 and
+  # are equally wide. Only on log2 values, and only for genes detected in at least one sample.
+  rle_median <- rle_iqr <- rep(NA_real_, n)
+  if (transform == "log2" || "log2" %in% attr(x, "transform", exact = TRUE)) {
+    det_idx <- which(rowSums(m >= min_value) >= 1L)
+    if (length(det_idx) >= 3L) {
+      vd <- v[det_idx, , drop = FALSE]
+      dev <- vd - apply(vd, 1L, stats::median)
+      rle_median <- apply(dev, 2L, stats::median)
+      rle_iqr <- apply(dev, 2L, stats::IQR)
+    }
+  }
   summary <- data.frame(
     sample_id = colnames(m), total = colSums(m), detected_genes = colSums(m >= min_value),
     detected_share = colSums(m >= min_value) / nrow(m),
     median_correlation = apply(off, 2L, stats::median, na.rm = TRUE),
     min_correlation = apply(off, 2L, function(z) if (all(is.na(z))) NA_real_ else min(z, na.rm = TRUE)),
     most_similar = apply(off, 2L, function(z) if (all(is.na(z))) NA_character_ else colnames(m)[which.max(z)]),
+    rle_median = unname(rle_median), rle_iqr = unname(rle_iqr),
     stringsAsFactors = FALSE
   )
   rownames(summary) <- NULL

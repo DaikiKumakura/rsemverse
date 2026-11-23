@@ -60,7 +60,12 @@ A list of class \code{rsem_sample_qc}:
 \item \code{sample_summary}: per sample \code{total} (sum of the values), \code{detected_genes}
 and \code{detected_share} (of all genes in \code{x}), \code{median_correlation},
 \code{min_correlation} and \code{most_similar} (the sample with the highest
-correlation) and the metadata columns;
+correlation), \code{rle_median} and \code{rle_iqr} (relative log expression: the
+median and the interquartile range of the deviations of a sample's log2
+values from the median of each gene over the samples, for genes detected
+in at least one sample; around 0 and similar between samples for
+comparable libraries; \code{NA} unless the values are log2) and the metadata
+columns;
 \item \code{parameters}: the settings and the numbers of genes used.
 }
 }
