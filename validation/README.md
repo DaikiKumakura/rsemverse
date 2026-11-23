@@ -143,3 +143,7 @@ On the same six ENCODE K562 runs:
 | `rsem_sample_qc()` relative log expression | median -0.025 to 0.020, IQR 0.28 to 0.39 |
 
 Then RSEM 1.3.3 itself was built and run on a toy data set (`--calc-pme --calc-ci --append-names`; `--estimate-rspd`); its output is in `tests/testthat/fixtures/rsem-real/`. `rsem_read()` read every posterior column, the interval and quartile variation, `IsoPct_from_pme_TPM`, the names after `--append-names` (including an underscore inside the name), the `.cnt` file and its histogram (the reads in it add up to `N_tot`), and the `.model` files; `rsem_reconcile()` found no gene beyond rounding. A gene with a 60 nt transcript had effective length 0, TPM 0 and 50 expected counts. Not read: the `.theta` file and the sequencing error sections of the `.model` file.
+
+## 0.7.2 (November 23, 2026)
+
+RSEM 1.3.3 was run once more with 600 unalignable reads added (`tests/testthat/fixtures/rsem-real/sampD.stat`). The `.theta` file then had 0.2182 (= 600 / 2750) as the first value of its second line and 0.2222 (= 600 / 2700) as the first value of its third line; `rsem_noise_qc()` reads both. GENCODE V29 read through `.read_annotation()`: 58,721 genes with name and type, 23.8 s (16.4 s of it reading the gzip file).

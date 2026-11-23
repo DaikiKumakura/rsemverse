@@ -49,6 +49,9 @@ these (quality scores, sequencing error) are not read. In the files RSEM
 probabilities follow the flag only when the RSPD was estimated
 (\code{--estimate-rspd}); without it the flag is followed by the next section.
 
+\code{forward_prob} is the strand probability that the run was given (\code{--strandedness},
+or 0.5 for none), written into the model; it is not learned from the reads.
+
 Without \code{--estimate-rspd} RSEM assumes that reads start uniformly along a
 transcript, so a flat RSPD is not evidence that the library has no 3'
 bias; \code{rspd_estimated} says which case it is. With single-end reads and no

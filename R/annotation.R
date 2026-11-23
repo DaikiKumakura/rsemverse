@@ -26,25 +26,12 @@
     a <- a[, c("gene_id", "gene_name", "gene_type")]
   } else if (is.character(annotation) && length(annotation) == 1L && !is.na(annotation)) {
     if (!file.exists(annotation) || dir.exists(annotation)) .stopf("`annotation` must be an existing GTF file: %s", annotation)
-    pick <- function(feature) {
-      con <- if (grepl("\\.gz$", annotation)) gzfile(annotation, "r") else file(annotation, "r")
-      on.exit(close(con))
-      lines <- character(0)
-      repeat {
-        chunk <- readLines(con, n = 500000L, warn = FALSE)
-        if (!length(chunk)) break
-        lines <- c(lines, chunk[grepl(sprintf("^[^#][^\t]*\t[^\t]*\t%s\t", feature), chunk)])
-      }
-      lines
-    }
-    # RSEM needs only exon rows, so a GTF made for it may have no gene (or transcript) rows:
-    # the gene_id and gene_name of the transcript or exon rows are used then.
-    lines <- pick("gene")
-    if (!length(lines)) lines <- pick("transcript")
-    if (!length(lines)) lines <- pick("exon")
-    if (!length(lines)) .stopf("No 'gene', 'transcript' or 'exon' rows found in the GTF file %s.", annotation)
-    attrs <- sub("^([^\t]*\t){8}", "", lines)
-    field <- function(keys) {
+    con <- if (grepl("\\.gz$", annotation)) gzfile(annotation, "r") else file(annotation, "r")
+    on.exit(close(con))
+    # The gene rows give the names and types; a gene without a gene row, or without a name or type
+    # there, gets them from its transcript rows and then its exon rows (RSEM needs only exon rows,
+    # so a GTF made for it may have no gene rows, and a GTF may have them for some genes only).
+    get <- function(attrs, keys) {
       out <- rep(NA_character_, length(attrs))
       for (k in keys) {
         hit <- is.na(out) & grepl(paste0("(^|; ?)", k, " \""), attrs)
@@ -52,11 +39,60 @@
       }
       out
     }
-    a <- data.frame(
-      gene_id = field("gene_id"), gene_name = field(c("gene_name", "gene")),
-      gene_type = field(c("gene_type", "gene_biotype")), stringsAsFactors = FALSE
-    )
-    a <- a[!duplicated(a$gene_id), , drop = FALSE]
+    first_known <- function(df) {  # df ordered by priority; the first non-missing value per gene_id
+      ids <- unique(df$gene_id)
+      out <- data.frame(gene_id = ids, stringsAsFactors = FALSE)
+      for (f in c("gene_name", "gene_type")) {
+        d <- df[!is.na(df[[f]]), , drop = FALSE]
+        d <- d[!duplicated(d$gene_id), , drop = FALSE]
+        out[[f]] <- d[[f]][match(ids, d$gene_id)]
+      }
+      out
+    }
+    parts <- list()
+    done <- character(0)
+    repeat {
+      chunk <- readLines(con, n = 500000L, warn = FALSE)
+      if (!length(chunk)) break
+      # Fixed-string searches first: they are much faster than a regular expression on every row.
+      is_gene <- grepl("\tgene\t", chunk, fixed = TRUE)
+      is_tx <- !is_gene & grepl("\ttranscript\t", chunk, fixed = TRUE)
+      # every other feature row (exon, CDS, UTR, ...) is used like an exon row
+      use <- which(is_gene | is_tx | (nzchar(chunk) & substr(chunk, 1L, 1L) != "#"))
+      if (!length(use)) next
+      rows <- chunk[use]
+      feat <- ifelse(is_gene[use], "gene", ifelse(is_tx[use], "transcript", "exon"))
+      parse_rows <- function(r, f) {
+        attrs <- sub("^([^\t]*\t){8}", "", r)
+        df <- data.frame(
+          gene_id = get(attrs, "gene_id"), gene_name = get(attrs, c("gene_name", "gene")),
+          gene_type = get(attrs, c("gene_type", "gene_biotype")), prio = match(f, c("gene", "transcript", "exon")),
+          stringsAsFactors = FALSE
+        )
+        df <- df[!is.na(df$gene_id), , drop = FALSE]
+        first_known(df[order(df$prio), , drop = FALSE])
+      }
+      # The gene rows first; the transcript and exon rows of a gene that is already complete are not parsed.
+      g <- feat == "gene"
+      if (any(g)) {
+        kn <- parse_rows(rows[g], feat[g])
+        parts[[length(parts) + 1L]] <- kn
+        done <- union(done, kn$gene_id[!is.na(kn$gene_name) & !is.na(kn$gene_type)])
+      }
+      rows <- rows[!g]; feat <- feat[!g]
+      if (length(rows) && length(done)) {
+        p <- regexpr("gene_id \"[^\"]*\"", rows, perl = TRUE)
+        id <- substr(rows, p + 9L, p + attr(p, "match.length") - 2L)
+        rows <- rows[!(id %in% done)]; feat <- feat[!(id %in% done)]
+      }
+      if (length(rows)) {
+        kn <- parse_rows(rows, feat)
+        parts[[length(parts) + 1L]] <- kn
+        done <- union(done, kn$gene_id[!is.na(kn$gene_name) & !is.na(kn$gene_type)])
+      }
+    }
+    if (!length(parts)) .stopf("No 'gene', 'transcript' or 'exon' rows found in the GTF file %s.", annotation)
+    a <- first_known(do.call(rbind, parts))
     if (need_type && all(is.na(a$gene_type))) .stopf("The GTF file has no gene_type or gene_biotype attribute.")
   } else {
     .stopf("`annotation` must be a path to a GTF file or a data frame.")

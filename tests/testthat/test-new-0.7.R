@@ -183,7 +183,8 @@ test_that("files written by RSEM 1.3.3 itself (--calc-pme --calc-ci --append-nam
   expect_equal(unique(chk$check), "zero_effective_length")
   expect_equal(unique(suppressMessages(rsem_reconcile(d))$n_beyond_rounding), 0L)
   m <- suppressMessages(rsem_mapping_qc(d, sample_from = "parent_dir"))
-  expect_equal(m$n_total, c(2150, 2150)); expect_equal(m$n_uncertain, c(323, 323)); expect_equal(m$read_type, c(0, 0))
+  expect_equal(m$sample_id, c("sampA", "sampB", "sampD"))
+  expect_equal(m$n_total, c(2150, 2150, 2750)); expect_equal(m$n_unalignable, c(0, 0, 600)); expect_equal(m$n_uncertain, c(323, 323, 323)); expect_equal(m$read_type, c(0, 0, 0))
   p <- suppressMessages(rsem_alignment_profile(d, sample_from = "parent_dir"))
   expect_equal(p$n_reads[p$sample_id == "sampA"], c(0, 1827, 323, 0))
   nm <- suppressMessages(rsem_read(d, metadata = NULL, expr = "count", id = "annotation", annotation = file.path(d, "genes.gtf")))
@@ -195,10 +196,10 @@ test_that("rsem_model_qc reads the .model files RSEM 1.3.3 wrote", {
   d <- testthat::test_path("fixtures", "rsem-real")
   q <- suppressMessages(rsem_model_qc(d, sample_from = "parent_dir"))
   s <- q$sample_summary
-  expect_equal(s$sample_id, c("sampA", "sampB", "sampC"))
-  expect_equal(s$rspd_estimated, c(FALSE, FALSE, TRUE))
-  expect_equal(s$rspd_bins, c(NA, NA, 20L))
-  expect_equal(s$model_type, c(0, 0, 0)); expect_equal(s$forward_prob, c(0.5, 0.5, 0.5))
+  expect_equal(s$sample_id, c("sampA", "sampB", "sampC", "sampD"))
+  expect_equal(s$rspd_estimated, c(FALSE, FALSE, TRUE, FALSE))
+  expect_equal(s$rspd_bins, c(NA, NA, 20L, NA))
+  expect_equal(s$model_type, rep(0, 4)); expect_equal(s$forward_prob, rep(0.5, 4))
   expect_equal(c(s$length_lower[1], s$length_upper[1]), c(49, 250))
   a <- q$length_distribution[q$length_distribution$sample_id == "sampA", ]
   expect_equal(nrow(a), 201L); expect_equal(sum(a$probability), 1, tolerance = 1e-6)
@@ -220,4 +221,50 @@ test_that("rsem_model_qc refuses files that are not .model files", {
   ex <- suppressMessages(rsem_model_qc(d))
   expect_equal(ex$sample_summary$length_mean, sum(10:13 * c(0.1, 0.4, 0.4, 0.1)))
   expect_equal(ex$sample_summary$length_mode, 11)
+})
+
+test_that("rsem_noise_qc reads the .theta files RSEM wrote, with noise reads in one of them", {
+  d <- testthat::test_path("fixtures", "rsem-real")
+  q <- suppressMessages(rsem_noise_qc(d, sample_from = "parent_dir"))
+  expect_equal(q$sample_id, c("sampA", "sampD"))
+  expect_equal(q$n_components, c(6L, 6L))
+  expect_equal(q$noise_fraction[[1]], 0)
+  # sampD: 600 of 2750 reads align nowhere; the second line is N0 / N_tot, the third line leaves out
+  # the 50 reads of the transcript with effective length 0
+  expect_equal(q$noise_fraction_uncorrected[[2]], 600 / 2750, tolerance = 1e-12)
+  expect_equal(q$noise_fraction[[2]], 600 / 2700, tolerance = 1e-12)
+})
+
+test_that("rsem_noise_qc and rsem_model_qc refuse impossible values", {
+  d <- withr::local_tempdir()
+  f <- file.path(d, "x.theta")
+  writeLines(c("3", "0.1 0.5 0.4", "0.2 0.5 0.4"), f)
+  expect_error(suppressMessages(rsem_noise_qc(d)), "add up to 1")
+  writeLines(c("3", "0.1 0.5"), f)
+  expect_error(suppressMessages(rsem_noise_qc(d)), "not an RSEM .theta")
+  m <- file.path(d, "x.model"); unlink(f)
+  writeLines(c("0", "", "1.5", "", "9 13 4", "0.1 0.4 0.4 0.1", "0", "0"), m)
+  expect_error(suppressMessages(rsem_model_qc(d)), "forward probability")
+  writeLines(c("0", "", "0.5", "", "9 13 4", "0.1 0.4 0.4 0.1", "0", "1", "2", "-0.1 1.1"), m)
+  expect_error(suppressMessages(rsem_model_qc(d)), "outside 0 to 1")
+  writeLines(c("0", "", "0.5", "", "9 13 4", "0.1 0.4 0.4 0.1", "0", "1", "0"), m)
+  expect_error(suppressMessages(rsem_model_qc(d)), "positive integer")
+})
+
+test_that("a GTF with gene rows for some genes only gets the others from transcript and exon rows", {
+  gtf <- tempfile(fileext = ".gtf")
+  writeLines(c(
+    'chr1	t	gene	1	100	.	+	.	gene_id "G1"; gene_name "ALPHA"; gene_type "protein_coding";',
+    'chr1	t	exon	1	10	.	+	.	gene_id "G1"; transcript_id "T1"; gene_name "ALPHA";',
+    'chr1	t	exon	50	80	.	+	.	gene_id "G2"; transcript_id "T2"; gene_name "BETA"; gene_type "lncRNA";',
+    'chr1	t	transcript	90	99	.	+	.	gene_id "G3"; transcript_id "T3"; gene_name "GAMMA";',
+    'chr1	t	exon	90	99	.	+	.	gene_id "G3"; transcript_id "T3"; gene_type "snoRNA";',
+    'chr1	t	gene	200	300	.	+	.	gene_id "G4"; gene_type "miRNA";',
+    'chr1	t	exon	200	300	.	+	.	gene_id "G4"; transcript_id "T4"; gene_name "DELTA";'
+  ), gtf)
+  a <- rsemverse:::.read_annotation(gtf, need_type = FALSE)
+  a <- a[order(a$gene_id), ]
+  expect_equal(a$gene_id, c("G1", "G2", "G3", "G4"))
+  expect_equal(a$gene_name, c("ALPHA", "BETA", "GAMMA", "DELTA"))
+  expect_equal(a$gene_type, c("protein_coding", "lncRNA", "snoRNA", "miRNA"))
 })

@@ -330,6 +330,14 @@ length of 0 stop it, as they stop DESeq2; `zero_length = "drop"` removes them, a
 lost counts is printed. For other values, `rsem_read()` also reads FPKM, the posterior FPKM, the
 FPKM interval and the coefficient of quartile variation of `--calc-ci`.
 
+### Transcript-level tests that use the assignment uncertainty
+
+`rsem_read(level = "isoform")` and `rsem_import(level = "isoform")` give transcript counts and TPM. For a
+transcript-level differential expression test that accounts for the uncertainty of assigning reads to
+transcripts, edgeR has `catchRSEM(files, ngibbs = )`, which reads the `*.isoforms.results` files made with
+`--calc-pme` or `--calc-ci`; `ngibbs` is the number of Gibbs samples used to make the files, which the
+files do not say, so give the number that was used. rsemverse does not repeat that model.
+
 ### Which IDs were merged: `rsem_id_report()`
 
 `rsem_read()` sums rows with the same symbol. `rsem_id_report(x)` lists the rows

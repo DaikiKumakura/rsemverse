@@ -1,3 +1,27 @@
+# rsemverse 0.7.2
+
+Gaps in 0.7.1 found by testing against RSEM's own output.
+
+## New function
+
+* `rsem_noise_qc()` reads the `.theta` files: the noise share (first value of the third line) and the
+  uncorrected value of the second line. In a run of RSEM with 600 added unalignable reads of 2,750, the
+  second-line value is `600 / 2750` and the third-line value `600 / 2700` (the 50 reads of a
+  transcript with effective length 0 left out), so the third line is the corrected one. The share is
+  not the unalignable fraction of `rsem_mapping_qc()` in general.
+
+## Changes
+
+* A GTF with gene rows for some genes only is read completely: a gene without a gene row, or with a
+  gene row without a name or type, gets them from its transcript rows and then its other rows (before,
+  the exon rows were used only when there was no gene row at all). The rows of genes that are already
+  complete are not parsed, so GENCODE V29 takes 24 seconds (16 of them reading the file) and gives the same
+  58,721 genes.
+* `rsem_model_qc()` stops on a strand probability outside 0 to 1, on any probability outside 0 to 1 in
+  the length distribution or the read start positions, and on a number of bins that is not a positive
+  integer; its documentation says that `forward_prob` is the strand probability the run was given, not
+  one learned from the reads.
+
 # rsemverse 0.7.1
 
 Checked against the output of RSEM itself.

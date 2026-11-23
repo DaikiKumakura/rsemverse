@@ -38,6 +38,7 @@ reference:
       - rsem_mapping_qc
       - rsem_alignment_profile
       - rsem_model_qc
+      - rsem_noise_qc
       - rsem_sample_qc
   - title: "Step 4: Normalize"
     desc: "Make samples comparable: CPM, TMM, upper quartile, DESeq2, quantile."
