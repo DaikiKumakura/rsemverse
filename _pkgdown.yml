@@ -2,6 +2,13 @@ url: https://daikikumakura.github.io/rsemverse/
 
 template:
   bootstrap: 5
+  bslib:
+    bg: "#ffffff"
+    fg: "#252525"
+    primary: "#25577b"
+    border-color: "#dddddd"
+    line-height-base: 1.65
+    headings-font-weight: 500
 
 home:
   title: "rsemverse: from RSEM gene results to analysis-ready gene tables"
@@ -11,9 +18,30 @@ home:
     human and mouse bulk RNA-seq.
 
 navbar:
+  bg: light
+  type: light
   structure:
-    left: [reference, articles, news]
+    left: [start, reference, articles, news, downloads]
     right: [search, github]
+  components:
+    start:
+      text: Get started
+      menu:
+        - text: Install
+          href: "index.html#installation"
+        - text: First example
+          href: "index.html#quick-start"
+    downloads:
+      text: Downloads
+      menu:
+        - text: Release
+          href: "https://github.com/DaikiKumakura/rsemverse/releases/tag/v0.7.2"
+        - text: R-universe
+          href: "https://daikikumakura.r-universe.dev/rsemverse"
+        - text: Zenodo
+          href: "https://doi.org/10.5281/zenodo.24451939"
+        - text: Portfolio
+          href: "https://daikikumakura.github.io/software/rsemverse.html"
 
 reference:
   - title: "Step 1: Read"
