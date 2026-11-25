@@ -8,6 +8,50 @@
 **From RSEM results to analysis-ready gene tables in R, for human and
 mouse bulk RNA-seq.**
 
+## Installation
+
+```r
+install.packages("BiocManager")
+BiocManager::install("DaikiKumakura/rsemverse")
+BiocManager::install("org.Hs.eg.db")   # human; org.Mm.eg.db for mouse
+```
+
+## Quick start
+
+The package includes three small RSEM files, so this runs as it is:
+
+```r
+library(rsemverse)
+ex <- system.file("extdata", "example", package = "rsemverse")
+
+counts <- rsem_read(file.path(ex, "data"), file.path(ex, "metadata.csv"),
+                    species = "human", expr = "count")
+kept   <- rsem_filter(counts, expr = "count")
+genes  <- rsem_subset(kept, "human", keep = "protein_coding", remove = c("mito", "ribo"))
+logcpm <- rsem_transform(rsem_normalize(genes, expr = "count", method = "tmm"), "log2")
+long   <- rsem_long(logcpm, metadata = file.path(ex, "metadata.csv"))
+```
+
+Each call prints one line:
+
+```text
+rsem_read: 3 samples, 44 genes -> 43 rows (species = human, expr = count, org.Hs.eg.db 3.22.0)
+rsem_filter (edger): kept 42 of 43 genes (CPM >= 1260 in >= 3 of 3 samples and total count >= 15); removed 1
+rsem_subset: kept 40 of 42 genes; keep protein_coding; remove mito, ribo (genes per group: ...)
+rsem_normalize (tmm, count): 40 genes x 3 samples; effective library sizes: S1 6587, S2 7145, S3 7827
+rsem_transform: 40 genes x 3 samples; log2(value + 1)
+rsem_long: 120 rows (40 genes x 3 samples) with 1 sample column(s): ref (text)
+```
+
+## Documentation
+
+[Function reference](https://daikikumakura.github.io/rsemverse/reference/) · [Changelog](https://daikikumakura.github.io/rsemverse/news/) · [Releases](https://github.com/DaikiKumakura/rsemverse/releases)
+
+## Workflow
+
+<details>
+<summary>Show details</summary>
+
 rsemverse reads RSEM `*.genes.results` (and `*.isoforms.results`) files into
 one table of gene symbols by samples, then filters, selects, normalizes and
 transforms that table, and finally turns it into a long table for plotting or
@@ -25,8 +69,6 @@ same table and returns the same table, so the steps chain in any order.
   the same results as edgeR, DESeq2 and limma, without depending on them.
 
 **Documentation:** <https://daikikumakura.github.io/rsemverse/>
-
-## Workflow
 
 ```text
   RSEM *.genes.results (+ metadata.csv, or found in the folder)
@@ -74,42 +116,12 @@ Effective lengths: `rsem_read(expr = "length")` and `rsem_length_profile()`.
 | Long table | `rsem_long()` | none: every column of the sample table is added as it is |
 | Write | `rsem_write()` | original gene IDs and GTF gene types next to the values; `.gz` compresses |
 
-## Installation
-
-```r
-install.packages("BiocManager")
-BiocManager::install("DaikiKumakura/rsemverse")
-BiocManager::install("org.Hs.eg.db")   # human; org.Mm.eg.db for mouse
-```
-
-## Quick start
-
-The package includes three small RSEM files, so this runs as it is:
-
-```r
-library(rsemverse)
-ex <- system.file("extdata", "example", package = "rsemverse")
-
-counts <- rsem_read(file.path(ex, "data"), file.path(ex, "metadata.csv"),
-                    species = "human", expr = "count")
-kept   <- rsem_filter(counts, expr = "count")
-genes  <- rsem_subset(kept, "human", keep = "protein_coding", remove = c("mito", "ribo"))
-logcpm <- rsem_transform(rsem_normalize(genes, expr = "count", method = "tmm"), "log2")
-long   <- rsem_long(logcpm, metadata = file.path(ex, "metadata.csv"))
-```
-
-Each call prints one line:
-
-```text
-rsem_read: 3 samples, 44 genes -> 43 rows (species = human, expr = count, org.Hs.eg.db 3.22.0)
-rsem_filter (edger): kept 42 of 43 genes (CPM >= 1260 in >= 3 of 3 samples and total count >= 15); removed 1
-rsem_subset: kept 40 of 42 genes; keep protein_coding; remove mito, ribo (genes per group: ...)
-rsem_normalize (tmm, count): 40 genes x 3 samples; effective library sizes: S1 6587, S2 7145, S3 7827
-rsem_transform: 40 genes x 3 samples; log2(value + 1)
-rsem_long: 120 rows (40 genes x 3 samples) with 1 sample column(s): ref (text)
-```
+</details>
 
 ## Your data
+
+<details>
+<summary>Show details</summary>
 
 Put the RSEM files in a folder and list them in `metadata.csv`. `ref` is the
 file name inside the folder. Add any other columns you like (group, batch,
@@ -135,7 +147,12 @@ folder (`S1/rsem.genes.results` → `S1`). It prints the files it found and
 stops if two files give the same sample ID. Groups are never guessed from
 file names.
 
+</details>
+
 ## The table
+
+<details>
+<summary>Show details</summary>
 
 Every function except `rsem_long()` returns the same kind of table:
 
@@ -150,7 +167,12 @@ GAPDH   980.1  1012.5 955.0
 A data frame with the symbols in the first column, or a numeric matrix with
 row names, is accepted too, so tables from elsewhere work as well.
 
+</details>
+
 ## The steps
+
+<details>
+<summary>Show details</summary>
 
 ### Read: `rsem_read()`
 
@@ -395,7 +417,12 @@ transcript, or only the most expressed one, combining samples by `"any"`,
 not re-quantified; removing transcripts by expression can remove important
 ones, so use it only for a stated purpose.
 
+</details>
+
 ## Recipes
+
+<details>
+<summary>Show details</summary>
 
 | Goal | Steps |
 |---|---|
@@ -418,7 +445,12 @@ top    <- rsem_filter(tmm, "count", method = "variable", n_top = 500)
 heat   <- rsem_transform(top, c("log2", "zscore"))
 ```
 
+</details>
+
 ## Differential expression
+
+<details>
+<summary>Show details</summary>
 
 RSEM's expected counts are not integer counts of a fixed gene length: a
 gene's effective length differs between samples when the isoform usage or the
@@ -445,6 +477,8 @@ lists them; whether to remove them or to import the transcript-level files
 the offset of those genes. Use rsemverse's tables for filtering decisions,
 plots and scores, and the files themselves for the test.
 
+</details>
+
 ## Validation
 
 - **Tests:** the filtering and normalization results (TMMwsp included) equal
@@ -461,10 +495,15 @@ plots and scores, and the files themselves for the test.
 
 ## Related tools
 
+<details>
+<summary>Show details</summary>
+
 - [bulkdeconv](https://daikikumakura.github.io/bulkdeconv/) estimates cell-type
   composition from the TPM table returned by `rsem_read()`.
 - [rsemflow](https://daikikumakura.github.io/rsemflow/) reads the same RSEM
   files to run DESeq2, GSEA and GSVA from the command line.
+
+</details>
 
 ## Citation
 
