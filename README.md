@@ -45,7 +45,7 @@ rsem_long: 120 rows (40 genes x 3 samples) with 1 sample column(s): ref (text)
 
 ## Documentation
 
-[Function reference](https://daikikumakura.github.io/rsemverse/reference/) · [Changelog](https://daikikumakura.github.io/rsemverse/news/) · [Releases](https://github.com/DaikiKumakura/rsemverse/releases)
+[Package website](https://daikikumakura.github.io/rsemverse/) · [Function reference](https://daikikumakura.github.io/rsemverse/reference/) · [Changelog](https://daikikumakura.github.io/rsemverse/news/) · [Releases](https://github.com/DaikiKumakura/rsemverse/releases) · [R-universe](https://daikikumakura.r-universe.dev/rsemverse)
 
 ## Workflow
 
@@ -479,7 +479,21 @@ plots and scores, and the files themselves for the test.
 
 </details>
 
-## Validation
+## Related tools
+
+<details>
+<summary>Show details</summary>
+
+- [bulkdeconv](https://daikikumakura.github.io/bulkdeconv/) estimates cell-type
+  composition from the TPM table returned by `rsem_read()`.
+- [rsemflow](https://daikikumakura.github.io/rsemflow/) reads the same RSEM
+  files to run DESeq2, GSEA and GSVA from the command line.
+
+</details>
+
+<a id="validation"></a>
+
+## Validation and limitations
 
 - **Tests:** the filtering and normalization results (TMMwsp included) equal
   those of edgeR 4.8.2, DESeq2 1.50.2 and limma 3.66.0 on simulated counts.
@@ -492,18 +506,6 @@ plots and scores, and the files themselves for the test.
   transcript files and the GENCODE V29 annotation. See
   [`validation/`](https://github.com/DaikiKumakura/rsemverse/tree/main/validation).
 - **Platforms:** R CMD check passes on Linux, macOS and Windows in CI.
-
-## Related tools
-
-<details>
-<summary>Show details</summary>
-
-- [bulkdeconv](https://daikikumakura.github.io/bulkdeconv/) estimates cell-type
-  composition from the TPM table returned by `rsem_read()`.
-- [rsemflow](https://daikikumakura.github.io/rsemflow/) reads the same RSEM
-  files to run DESeq2, GSEA and GSVA from the command line.
-
-</details>
 
 ## Citation
 
