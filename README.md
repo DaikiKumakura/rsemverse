@@ -512,4 +512,4 @@ citation metadata is in [`CITATION.cff`](https://github.com/DaikiKumakura/rsemve
 
 ## License
 
-MIT © Daiki Kumakura
+This project is licensed under MIT. See [LICENSE.md](LICENSE.md) for the license terms.
