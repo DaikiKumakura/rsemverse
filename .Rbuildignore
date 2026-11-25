@@ -13,3 +13,4 @@
 ^pkgdown$
 ^CITATION\.cff$
 ^vignettes/articles$
+^README-GUIDE\.md$
