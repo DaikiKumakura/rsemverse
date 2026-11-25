@@ -43,7 +43,7 @@
 #'
 #' @examples
 #' f <- tempfile(fileext = ".cnt")
-#' writeLines(c("100 850 50 1000", "800 50 120", "1500 2", "0\t100", "1\t700", "Inf\t50"), f)
+#' writeLines(c("100 850 50 1000", "800 50 120", "1000 2", "0\t100", "1\t700", "Inf\t50"), f)
 #' rsem_mapping_qc(dirname(f), metadata = NULL)[, c("sample_id", "n_total", "alignable_fraction")]
 #' @export
 rsem_mapping_qc <- function(data = "data", metadata = NULL, sample_from = "filename") {
@@ -106,7 +106,7 @@ rsem_mapping_qc <- function(data = "data", metadata = NULL, sample_from = "filen
 #'   reads in the histogram do not add up to `N_tot` of the first line.
 #' @examples
 #' f <- tempfile(fileext = ".cnt")
-#' writeLines(c("100 850 50 1000", "800 50 120", "1500 2", "0	100", "1	700", "2	150", "Inf	50"), f)
+#' writeLines(c("100 850 50 1000", "800 50 120", "1000 2", "0	100", "1	700", "2	150", "Inf	50"), f)
 #' rsem_alignment_profile(dirname(f), metadata = NULL)
 #' @export
 rsem_alignment_profile <- function(data = "data", metadata = NULL, sample_from = "filename") {
@@ -128,7 +128,17 @@ rsem_alignment_profile <- function(data = "data", metadata = NULL, sample_from =
     if (any(lengths(parts) != 2L)) .stopf("%s: the histogram lines must have two values: number of alignments and number of reads.", label)
     k <- suppressWarnings(as.numeric(vapply(parts, `[[`, "", 1L)))
     n <- suppressWarnings(as.numeric(vapply(parts, `[[`, "", 2L)))
-    if (anyNA(k) || anyNA(n) || any(n < 0) || any(!is.finite(n))) .stopf("%s: the histogram has values that are not counts.", label)
+    if (anyNA(k) || anyNA(n) || any(n < 0) || any(!is.finite(n)) || any(n != round(n))) .stopf("%s: the histogram has values that are not counts.", label)
+    fin <- is.finite(k)
+    if (any(k[fin] < 0) || any(k[fin] != round(k[fin])) || any(is.infinite(k) & k < 0)) .stopf("%s: the numbers of alignments in the histogram must be 0, 1, 2, ... (and Inf).", label)
+    if (anyDuplicated(k)) .stopf("%s: the histogram lists the same number of alignments twice.", label)
+    if (any(k == 0 & n != totals$n_unalignable) || (any(is.infinite(k)) && sum(n[is.infinite(k)]) != totals$n_filtered)) {
+      .stopf("%s: the histogram does not match N0 (the 0 row) and N2 (the Inf row) of the first line.", label)
+    }
+    hits <- sum(k[fin] * n[fin])
+    if (abs(hits - totals$n_hits) > 0.5) {
+      warning(sprintf("%s: the alignments in the histogram (%s) are not nHits (%s).", label, format(hits), format(totals$n_hits)), call. = FALSE)
+    }
     if (abs(sum(n) - totals$n_total) > 0.5) {
       warning(sprintf("%s: the reads in the histogram (%s) do not add up to N_tot (%s).", label, format(sum(n)), format(totals$n_total)), call. = FALSE)
     }

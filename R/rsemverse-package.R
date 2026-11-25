@@ -1,38 +1,31 @@
-#' rsemverse: from RSEM results to analysis-ready gene tables
+#' rsemverse: RSEM results in R, one step at a time, with the pipe
 #'
-#' rsemverse turns RSEM `*.genes.results` (and `*.isoforms.results`) files
-#' into one table of gene symbols by samples and prepares that table for
-#' analysis. Every function takes the same table and returns the same table,
-#' so the steps chain in any order, and each prints what it did.
+#' rsemverse reads RSEM `*.genes.results` and `*.isoforms.results` files, checks them, and turns them
+#' into tables for plots, scores and downstream tools. Every step takes a table and returns a table,
+#' so the steps chain with `|>`, and each prints one line about what it did. The table remembers what
+#' it holds (`expr`), the original gene IDs, the normalization factors and the steps, so a step needs
+#' no repeated `expr = `; [rsem_steps()] lists what was done.
 #'
-#' @section Workflow:
-#' 1. [rsem_check()], [rsem_reconcile()] and [rsem_read()]: check the files and that
-#'    gene and isoform files agree, then read counts, TPM,
-#'    effective lengths or posterior estimates into a gene symbol by sample
-#'    table (and see which gene IDs were merged with [rsem_id_report()]); find the
-#'    files without a sample table if wanted.
-#' 2. [rsem_detection_curve()] and [rsem_filter()]: see how many genes each
-#'    detection threshold keeps, then remove lowly expressed genes (edgeR
-#'    `filterByExpr()` rule, detection thresholds) or keep the most variable.
-#' 3. [rsem_subset()] and [rsem_biotype_profile()]: keep or remove gene groups
-#'    taken from the OrgDb or from a GTF file (rRNA, snoRNA, lncRNA, ...),
-#'    and see what share of each sample they take. [rsem_mapping_qc()] reads
-#'    the read assignment statistics of the RSEM `.cnt` files, and
-#'    [rsem_sample_qc()] gives PCA, sample correlation and a per-sample summary.
-#' 4. [rsem_normalize()]: normalize between samples (CPM, TMM, TMMwsp, upper
-#'    quartile, DESeq2 median of ratios, quantile).
-#' 5. [rsem_transform()] and [rsem_fit_reference()] /
-#'    [rsem_apply_reference()]: log2, z-score, centering, ranks, and z-scores
-#'    against a fixed reference group.
-#' 6. [rsem_long()] and [rsem_write()]: one row per gene and sample for
-#'    ggplot2, or a table with gene IDs and annotation for other tools.
+#' ```
+#' rsem_read("rsem", species = "human", expr = "count") |>
+#'   rsem_filter() |> rsem_normalize(method = "tmm") |> rsem_transform("log2") |> rsem_sample_qc()
+#' ```
 #'
-#' Transcripts: [rsem_read()] with `level = "isoform"` and
-#' [rsem_select_isoforms()]. Effective lengths: [rsem_length_profile()].
+#' @section The functions:
+#' * Read: [rsem_read()] (one value), [rsem_import()] (several values).
+#' * Prepare: [rsem_filter()], [rsem_subset()], [rsem_normalize()], [rsem_transform()],
+#'   [rsem_fit_reference()] with [rsem_apply_reference()].
+#' * Check the files: [rsem_check()], [rsem_reconcile()], [rsem_id_report()].
+#' * QC: [rsem_sample_qc()], [rsem_qc_summary()] (and its parts [rsem_mapping_qc()],
+#'   [rsem_alignment_profile()], [rsem_model_qc()], [rsem_noise_qc()]), [rsem_biotype_profile()],
+#'   [rsem_length_profile()], [rsem_detection_curve()].
+#' * Transcripts: [rsem_select_isoforms()], [rsem_isoform_usage()].
+#' * Hand over: [rsem_long()], [rsem_write()], [rsem_as_tximport()], [rsem_as_summarizedexperiment()],
+#'   [rsem_steps()].
 #'
-#' No gene list and no sample grouping are needed except where a function
-#' compares with a reference group. Filtering and normalization give the same
-#' results as edgeR, DESeq2 and limma without depending on them.
+#' No gene list and no sample grouping are needed except where a function compares with a reference
+#' group. Filtering and normalization give the same results as edgeR, DESeq2 and limma without
+#' depending on them.
 #'
 #' @keywords internal
 "_PACKAGE"

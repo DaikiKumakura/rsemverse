@@ -109,8 +109,8 @@ test_that("rsem_sample_qc refuses a second log2 and the history survives the fil
   set.seed(2)
   m <- as.data.frame(matrix(round(stats::rexp(80 * 5, 0.1), 1), 80, 5, dimnames = list(paste0("g", 1:80), paste0("S", 1:5))))
   lg <- suppressMessages(rsem_transform(m, "log2"))
-  expect_error(rsem_sample_qc(lg), "already log2-transformed")
-  expect_error(rsem_sample_qc(suppressMessages(rsem_filter(lg, "tpm", method = "nonzero"))), "already log2-transformed")
+  expect_error(rsem_sample_qc(lg, transform = "log2"), "already log2-transformed")
+  expect_error(rsem_sample_qc(suppressMessages(rsem_filter(lg, "tpm", method = "nonzero")), transform = "log2"), "already log2-transformed")
   qc <- suppressMessages(rsem_sample_qc(lg, transform = "none", n_top = 30))
   ref <- suppressMessages(rsem_sample_qc(m, n_top = 30))
   expect_equal(qc$pca_variance$variance, ref$pca_variance$variance)
@@ -118,7 +118,8 @@ test_that("rsem_sample_qc refuses a second log2 and the history survives the fil
   # z-scores against a reference keep the history, so they are not logged again either
   z <- suppressMessages(rsem_apply_reference(m, suppressMessages(rsem_fit_reference(m, c("S1", "S2", "S3")))))
   expect_equal(attr(z, "transform"), c("log2", "zscore"))
-  expect_error(rsem_sample_qc(z), "already log2-transformed")
+  expect_error(rsem_sample_qc(z, transform = "log2"), "already log2-transformed")
+  expect_equal(suppressMessages(rsem_sample_qc(z, n_top = 30))$parameters$transform, "none")  # the default sees it
 })
 
 test_that("rsem_check reports every problem at once", {

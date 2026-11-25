@@ -7,7 +7,7 @@
 rsem_sample_qc(
   x,
   metadata = NULL,
-  transform = "log2",
+  transform = NULL,
   pseudocount = 1,
   min_value = 1,
   n_top = 2000,
@@ -25,7 +25,8 @@ rsem_sample_qc(
 \code{sample_id} column), as in \code{\link[=rsem_long]{rsem_long()}}; its columns are added to
 \code{pca_scores} and \code{sample_summary}.}
 
-\item{transform}{\code{"log2"} (the default) or \code{"none"}.}
+\item{transform}{\code{NULL} (the default: \code{"log2"}, or \code{"none"} when the table is already
+log2-transformed), \code{"log2"} or \code{"none"}.}
 
 \item{pseudocount}{For \code{"log2"}. Default 1.}
 
@@ -95,7 +96,8 @@ in at least one sample;
 \section{Choices that are not made silently}{
 
 \itemize{
-\item \code{transform = "log2"} (the default) uses \code{log2(value + 1)}; \code{"none"} uses
+\item \code{transform = NULL} (the default) is \code{"log2"}, or \code{"none"} for a table that is already log2-transformed;
+\code{"log2"} uses \code{log2(value + 1)}; \code{"none"} uses
 the values as they are (for values that are already on a log scale). A
 table made with \code{\link[=rsem_transform]{rsem_transform()}} remembers that it is log2-transformed,
 and \code{transform = "log2"} then stops instead of transforming twice.

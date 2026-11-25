@@ -16,15 +16,18 @@
 #' @param data Folder with the `*.genes.results` files (searched recursively).
 #' @param isoform_data Folder with the `*.isoforms.results` files; the default
 #'   is `data`.
-#' @param columns Value columns to compare. Any of `"expected_count"`, `"TPM"`
-#'   and `"FPKM"`.
+#' @param columns Value columns to compare: `"expected_count"`, `"TPM"`, `"FPKM"` and,
+#'   for files made with `--calc-pme` or `--calc-ci`, `"posterior_mean_count"`, `"pme_TPM"`
+#'   and `"pme_FPKM"`. Only values that add up over the transcripts of a gene can be
+#'   compared; the posterior deviation, the interval bounds and the quartile variation cannot.
 #' @param sample_from `"filename"` or `"parent_dir"`, as in [rsem_read()].
 #' @param tolerance_extra Added to the rounding bound, to allow for files that
 #'   were written with more digits (default `1e-6`).
 #'
 #' @return A data frame with one row per sample and column: `n_genes` compared,
 #'   `n_beyond_rounding` (genes whose difference is above the bound),
-#'   `max_abs_diff`, the `worst_gene`, and the numbers of genes only in the gene
+#'   `max_abs_diff` and the gene it belongs to (`max_diff_gene`), the `worst_gene` (the gene
+#'   that exceeds its bound by most, which can be another gene), and the numbers of genes only in the gene
 #'   file (`genes_without_isoforms`) or only in the isoform file
 #'   (`isoform_genes_missing`), and `transcript_mapping_mismatch`, the number of
 #'   genes whose `transcript_id(s)` in the gene file are not the transcripts of
@@ -40,8 +43,9 @@
 rsem_reconcile <- function(data = "data", isoform_data = data,
                            columns = c("expected_count", "TPM", "FPKM"),
                            sample_from = "filename", tolerance_extra = 1e-6) {
-  if (!is.character(columns) || !length(columns) || !all(columns %in% c("expected_count", "TPM", "FPKM"))) {
-    .stopf("`columns` must be one or more of \"expected_count\", \"TPM\", \"FPKM\".")
+  additive <- c("expected_count", "TPM", "FPKM", "posterior_mean_count", "pme_TPM", "pme_FPKM")
+  if (!is.character(columns) || !length(columns) || !all(columns %in% additive)) {
+    .stopf("`columns` must be one or more of %s (the values that add up over the transcripts of a gene; deviations, intervals and quartile variations do not).", paste(sprintf("\"%s\"", additive), collapse = ", "))
   }
   columns <- unique(columns)
   sample_from <- .choice(sample_from, c("filename", "parent_dir"), "sample_from")
@@ -108,6 +112,7 @@ rsem_reconcile <- function(data = "data", isoform_data = data,
         sample_id = sid, column = col, n_genes = length(common),
         n_beyond_rounding = sum(beyond),
         max_abs_diff = if (length(d)) max(d) else NA_real_,
+        max_diff_gene = if (length(d)) common[[which.max(d)]] else NA_character_,
         worst_gene = if (length(d)) common[[which.max(d - bound)]] else NA_character_,
         genes_without_isoforms = length(only_gene), isoform_genes_missing = length(only_iso),
         transcript_mapping_mismatch = tx_mismatch, transcript_mapping_checked = tx_checked,

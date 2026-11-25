@@ -107,6 +107,11 @@ rsem_check <- function(data = "data", metadata = NULL, level = "gene", sample_fr
     n_dup <- sum(duplicated(ids))
     if (anyNA(ids) || any(!nzchar(ids))) add("ERROR", "missing_ids", sid, "empty or missing IDs", sum(is.na(ids) | !nzchar(ids)))
     if (n_dup) add("ERROR", "duplicated_ids", sid, sprintf("%d duplicated %s values", n_dup, key), n_dup)
+    if (second %in% names(x)) {
+      sec <- x[[second]]
+      n_sec <- sum(is.na(sec) | !nzchar(sec))
+      if (n_sec) add("ERROR", "missing_ids", sid, sprintf("empty or missing '%s' for %d rows", second, n_sec), n_sec)
+    }
 
     for (col in intersect(value_cols, names(x))) {
       v <- x[[col]]

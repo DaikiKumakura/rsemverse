@@ -74,9 +74,11 @@
 #'   rsem_filter(tpm, expr = "tpm", method = "variable", n_top = 10)
 #' }
 #' @export
-rsem_filter <- function(x, expr, method = NULL, min_value = NULL, min_samples = 0.2, n_top = 2000,
+rsem_filter <- function(x, expr = attr(x, "expr", exact = TRUE), method = NULL, min_value = NULL, min_samples = 0.2, n_top = 2000,
                         group = NULL, design = NULL) {
-  if (missing(expr)) .stopf("`expr` must be \"count\" or \"tpm\".")
+  # a normalized or log-transformed table has no expr; "variable" and "nonzero" do not need one
+  if (is.null(expr) && is.character(method) && length(method) == 1L && method %in% c("variable", "nonzero")) expr <- "tpm"
+  expr <- .need_expr(expr)
   expr <- .choice(expr, c("count", "tpm"), "expr")
   if (is.null(method)) method <- if (expr == "count") "edger" else "detected"
   method <- .choice(method, c("edger", "detected", "nonzero", "variable"), "method")
@@ -142,5 +144,5 @@ rsem_filter <- function(x, expr, method = NULL, min_value = NULL, min_samples = 
     "rsem_filter (%s): kept %s of %s genes (%s); removed %s",
     method, .fmt(sum(keep)), .fmt(nrow(m)), rule, .fmt(sum(!keep))
   ))
-  .as_table(m[keep, , drop = FALSE], from = x)
+  .as_table(m[keep, , drop = FALSE], from = x, step = sprintf("filter: %s, kept %d of %d genes", method, sum(keep), nrow(m)))
 }

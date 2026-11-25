@@ -86,7 +86,7 @@ rsem_transform <- function(x, method, pseudocount = 1) {
   dimnames(m) <- dn
 
   message(sprintf("rsem_transform: %s genes x %d samples; %s", .fmt(nrow(m)), ncol(m), paste(notes, collapse = ", then ")))
-  res <- .as_table(m, from = x)
+  res <- .as_table(m, from = x, step = paste("transform:", paste(notes, collapse = ", then ")), keep_expr = FALSE)
   attr(res, "transform") <- done
   res
 }

@@ -11,11 +11,10 @@ template:
     headings-font-weight: 500
 
 home:
-  title: "rsemverse: from RSEM gene results to analysis-ready gene tables"
+  title: "rsemverse: RSEM results in R, one step at a time, with the pipe"
   description: >-
-    Read RSEM gene results into a gene symbol by sample table, then filter,
-    select, normalize and transform it, and turn it into a long table, for
-    human and mouse bulk RNA-seq.
+    Read RSEM results, check them, and filter, normalize and transform them
+    with |> into tables for plots, scores, DESeq2 and Bioconductor.
 
 navbar:
   bg: light
@@ -44,48 +43,49 @@ navbar:
           href: "https://daikikumakura.github.io/software/rsemverse.html"
 
 reference:
-  - title: "Step 1: Read"
-    desc: "RSEM files and a sample table in, one gene symbol by sample table out."
+  - title: "Read"
+    desc: "RSEM files in, a table of gene symbols by samples out."
     contents:
       - rsem_read
       - rsem_import
-      - rsem_as_tximport
-  - title: "Step 2: Filter"
-    desc: "See what each threshold keeps, then remove lowly expressed genes or keep the most variable ones."
+  - title: "Prepare"
+    desc: "Each takes a table and returns a table, so they chain with |>."
     contents:
-      - rsem_detection_curve
       - rsem_filter
-  - title: "Step 3: Select genes"
-    desc: "Keep or remove gene groups from the OrgDb or a GTF file; see their share per sample."
-    contents:
       - rsem_subset
-      - rsem_biotype_profile
+      - rsem_normalize
+      - rsem_transform
+      - rsem_fit_reference
+      - rsem_apply_reference
+      - rsem_reference_scale
+      - rsem_steps
+  - title: "Check the files"
+    contents:
       - rsem_check
       - rsem_reconcile
       - rsem_id_report
+  - title: "QC"
+    contents:
+      - rsem_sample_qc
+      - rsem_qc_summary
       - rsem_mapping_qc
       - rsem_alignment_profile
       - rsem_model_qc
       - rsem_noise_qc
-      - rsem_sample_qc
-  - title: "Step 4: Normalize"
-    desc: "Make samples comparable: CPM, TMM, upper quartile, DESeq2, quantile."
+      - rsem_biotype_profile
+      - rsem_length_profile
+      - rsem_detection_curve
+  - title: "Transcripts"
     contents:
-      - rsem_normalize
-  - title: "Step 5: Transform"
-    desc: "log2, z-score, centering and ranks for plots, clustering and scores."
-    contents:
-      - rsem_transform
-      - rsem_fit_reference
-  - title: "Step 6: Long table and files"
-    desc: "One row per gene and sample, with the sample table, for ggplot2; or a TSV with gene IDs and types."
+      - rsem_select_isoforms
+      - rsem_isoform_usage
+  - title: "Hand over"
+    desc: "A long table for ggplot2, files, DESeq2 and Bioconductor."
     contents:
       - rsem_long
       - rsem_write
-  - title: "Transcripts and effective lengths"
-    contents:
-      - rsem_select_isoforms
-      - rsem_length_profile
+      - rsem_as_tximport
+      - rsem_as_summarizedexperiment
   - title: Package
     contents:
       - rsemverse-package

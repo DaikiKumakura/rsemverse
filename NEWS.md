@@ -1,3 +1,46 @@
+# rsemverse 0.8.0
+
+Made for the pipe: steps chain without repeating what the table holds, and the table says how it was made.
+Also the gaps that two external reviews of 0.7.2 and our own tests showed.
+
+## The pipe
+
+* `rsem_read()` records what the table holds (`count`, `tpm`, ...; the attribute `"expr"`) and the first
+  step. `rsem_filter()`, `rsem_detection_curve()` and `rsem_normalize()` take it as the default of `expr`, so
+  `rsem_read(..., expr = "count") |> rsem_filter() |> rsem_normalize(method = "tmm")` needs no second
+  `expr = `. A normalized or log-transformed table has no `expr`; `rsem_filter(method = "variable")`
+  and `"nonzero"` do not need one.
+* `rsem_filter()`, `rsem_subset()`, `rsem_normalize()`, `rsem_transform()` and the reference z-scores
+  add a line to the attribute `"steps"`, and the table keeps the normalization `"factors"` through them
+  (before, a transformation lost them). `rsem_steps()` returns the steps.
+* `rsem_sample_qc()` takes `transform = NULL` as the default: log2, or none when the table is already
+  log2-transformed. Asking for `"log2"` on such a table still stops.
+
+## New functions
+
+* `rsem_qc_summary()` joins the quality numbers of the `.cnt`, `.model` and `.theta` files and of the gene
+  results by sample, and warns when the read type of a `.cnt` file differs from the model type of the `.model`.
+* `rsem_isoform_usage()` gives, per gene and sample, the share of the dominant transcript, the number of
+  expressed transcripts, the entropy and the effective number of isoforms; no TPM gives `NA`.
+* `rsem_as_summarizedexperiment()` wraps `rsem_import()` values, the sample table and the gene IDs.
+
+## Fixes
+
+* GTF names and types: the row type decides (gene, then transcript, then the others), also when the
+  rows are in other chunks of the file.
+* `rsem_model_qc()` stops on an optional read length flag other than 0 or 1 and on bounds that are not
+  whole numbers.
+* `rsem_alignment_profile()` stops on negative, fractional or repeated numbers of alignments and on a
+  histogram that does not match `N0` and `N2`, and warns when the alignments in it are not `nHits`
+  (they are in RSEM's own `.cnt`).
+* `rsem_reconcile()` also compares `posterior_mean_count`, `pme_TPM` and `pme_FPKM` (the values that add
+  up), and `max_diff_gene` is the gene of `max_abs_diff`.
+* `rsem_check()` reports an empty or missing `transcript_id(s)` (gene files) or `gene_id` (transcript files).
+
+## Documentation
+
+* The README is rewritten: one page, the pipe first, a table of the functions, recipes that were run on real files.
+
 # rsemverse 0.7.2
 
 Gaps in 0.7.1 found by testing against RSEM's own output.

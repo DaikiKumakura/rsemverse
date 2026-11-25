@@ -32,8 +32,8 @@
 #'   rsem_detection_curve(tpm, expr = "tpm")
 #' }
 #' @export
-rsem_detection_curve <- function(x, expr, thresholds = NULL, min_samples = c(1, 0.2, 0.5)) {
-  if (missing(expr)) .stopf("`expr` must be \"count\" or \"tpm\".")
+rsem_detection_curve <- function(x, expr = attr(x, "expr", exact = TRUE), thresholds = NULL, min_samples = c(1, 0.2, 0.5)) {
+  expr <- .need_expr(expr)
   expr <- .choice(expr, c("count", "tpm"), "expr")
   m <- .expr_matrix(x)
   n <- ncol(m)

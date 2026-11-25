@@ -19,7 +19,8 @@
 #' * `"variable"`: the same genes as the principal components.
 #'
 #' @section Choices that are not made silently:
-#' * `transform = "log2"` (the default) uses `log2(value + 1)`; `"none"` uses
+#' * `transform = NULL` (the default) is `"log2"`, or `"none"` for a table that is already log2-transformed;
+#'   `"log2"` uses `log2(value + 1)`; `"none"` uses
 #'   the values as they are (for values that are already on a log scale). A
 #'   table made with [rsem_transform()] remembers that it is log2-transformed,
 #'   and `transform = "log2"` then stops instead of transforming twice.
@@ -36,7 +37,8 @@
 #' @param metadata Optional sample table (path to a CSV or a data frame with a
 #'   `sample_id` column), as in [rsem_long()]; its columns are added to
 #'   `pca_scores` and `sample_summary`.
-#' @param transform `"log2"` (the default) or `"none"`.
+#' @param transform `NULL` (the default: `"log2"`, or `"none"` when the table is already
+#'   log2-transformed), `"log2"` or `"none"`.
 #' @param pseudocount For `"log2"`. Default 1.
 #' @param min_value Value a gene must reach to count as detected. Default 1
 #'   (TPM 1 or count 1).
@@ -78,9 +80,10 @@
 #' qc$pca_variance[1:3, ]
 #' qc$sample_summary
 #' @export
-rsem_sample_qc <- function(x, metadata = NULL, transform = "log2", pseudocount = 1, min_value = 1,
+rsem_sample_qc <- function(x, metadata = NULL, transform = NULL, pseudocount = 1, min_value = 1,
                            n_top = 2000, n_pcs = 10, pca_scale = FALSE,
                            correlation = "spearman", correlation_genes = "detected") {
+  if (is.null(transform)) transform <- if ("log2" %in% attr(x, "transform", exact = TRUE)) "none" else "log2"
   transform <- .choice(transform, c("log2", "none"), "transform")
   correlation <- .choice(correlation, c("spearman", "pearson", "kendall"), "correlation")
   correlation_genes <- .choice(correlation_genes, c("detected", "all", "variable"), "correlation_genes")

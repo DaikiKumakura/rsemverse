@@ -80,21 +80,21 @@ test_that("rsem_check reports damaged posterior columns and transcripts with ano
 test_that("rsem_mapping_qc refuses impossible .cnt values and handles no alignable reads", {
   d <- withr::local_tempdir()
   w <- function(name, lines) writeLines(lines, file.path(d, paste0(name, ".cnt")))
-  w("ok", c("100 850 50 1000", "800 50 120", "1500 2", "0\t100", "1\t700", "2\t150", "Inf\t50"))
+  w("ok", c("100 850 50 1000", "800 50 120", "1000 2", "0\t100", "1\t700", "2\t150", "Inf\t50"))
   w("zero", c("100 0 0 100", "0 0 0", "0 2", "0\t100", "Inf\t0"))
   res <- suppressMessages(rsem_mapping_qc(d))
   expect_true(is.na(res$unique_gene_fraction[res$sample_id == "zero"]))
   d2 <- withr::local_tempdir()
   w2 <- function(lines) { writeLines(lines, file.path(d2, "x.cnt")); d2 }
-  expect_error(suppressMessages(rsem_mapping_qc(w2(c("Inf 850 50 Inf", "800 50 120", "1500 2")))), "not an RSEM .cnt")
+  expect_error(suppressMessages(rsem_mapping_qc(w2(c("Inf 850 50 Inf", "800 50 120", "1000 2")))), "not an RSEM .cnt")
   expect_error(suppressMessages(rsem_mapping_qc(w2(c("100 850 50 1000", "800 50 120", "1500 7")))), "read type")
-  expect_error(suppressMessages(rsem_mapping_qc(w2(c("100 850 50 1000", "800 50 900", "1500 2")))), "nUncertain")
+  expect_error(suppressMessages(rsem_mapping_qc(w2(c("100 850 50 1000", "800 50 900", "1000 2")))), "nUncertain")
   prof <- suppressMessages(rsem_alignment_profile(d))
   p <- prof[prof$sample_id == "ok", ]
   expect_equal(p$n_alignments, c(0, 1, 2, Inf))
   expect_equal(p$n_reads, c(100, 700, 150, 50))
   expect_equal(sum(p$fraction), 1)
-  w("bad", c("100 850 50 1000", "800 50 120", "1500 2", "0\t10", "Inf\t5"))
+  w("bad", c("100 850 50 1000", "800 50 120", "700 2", "0\t100", "1\t700", "Inf\t50"))
   expect_warning(suppressMessages(rsem_alignment_profile(d)), "do not add up")
 })
 
@@ -267,4 +267,124 @@ test_that("a GTF with gene rows for some genes only gets the others from transcr
   expect_equal(a$gene_id, c("G1", "G2", "G3", "G4"))
   expect_equal(a$gene_name, c("ALPHA", "BETA", "GAMMA", "DELTA"))
   expect_equal(a$gene_type, c("protein_coding", "lncRNA", "snoRNA", "miRNA"))
+})
+
+test_that("the GTF row type decides, not the position in the file or the chunk", {
+  gtf <- tempfile(fileext = ".gtf")
+  n_filler <- 600000L  # more than one chunk of 500000 lines between the exon row and the gene row
+  filler <- rep('chr1\tt\tCDS\t1\t2\t.\t+\t.\tgene_id "Z"; gene_name "Z"; gene_type "z";', n_filler)
+  writeLines(c(
+    'chr1\tt\texon\t1\t10\t.\t+\t.\tgene_id "G1"; transcript_id "T1"; gene_name "EXONNAME"; gene_type "exon_type";',
+    filler,
+    'chr1\tt\tgene\t1\t100\t.\t+\t.\tgene_id "G1"; gene_name "GENENAME"; gene_type "protein_coding";'
+  ), gtf)
+  a <- rsemverse:::.read_annotation(gtf, need_type = FALSE)
+  g1 <- a[a$gene_id == "G1", ]
+  expect_equal(g1$gene_name, "GENENAME")
+  expect_equal(g1$gene_type, "protein_coding")
+})
+
+test_that("0.7.3 checks: .model flags, .cnt histogram bins, reconcile posterior means, secondary IDs", {
+  d <- withr::local_tempdir()
+  m <- file.path(d, "x.model")
+  writeLines(c("0", "", "0.5", "", "9 13 4", "0.1 0.4 0.4 0.1", "2", "0"), m)
+  expect_error(suppressMessages(rsem_model_qc(d)), "optional read length flag")
+  writeLines(c("0", "", "0.5", "", "9.5 13 4", "0.1 0.4 0.4 0.1", "0", "0"), m)
+  expect_error(suppressMessages(rsem_model_qc(d)), "whole numbers")
+  unlink(m)
+  w <- function(name, lines) writeLines(lines, file.path(d, paste0(name, ".cnt")))
+  w("neg", c("0 3 0 3", "3 0 0", "3 0", "0\t0", "-1\t1", "1\t2"))
+  expect_error(suppressMessages(rsem_alignment_profile(d)), "must be 0, 1, 2")
+  unlink(file.path(d, "neg.cnt"))
+  w("dup", c("0 3 0 3", "3 0 0", "3 0", "0\t0", "1\t1", "1\t2"))
+  expect_error(suppressMessages(rsem_alignment_profile(d)), "twice")
+  unlink(file.path(d, "dup.cnt"))
+  w("mismatch", c("1 2 0 3", "2 0 0", "2 0", "0\t0", "1\t2", "Inf\t1"))
+  expect_error(suppressMessages(rsem_alignment_profile(d)), "does not match N0")
+  unlink(file.path(d, "mismatch.cnt"))
+  w("hits", c("0 3 0 3", "3 0 0", "9 0", "0\t0", "1\t2", "2\t1"))
+  expect_warning(suppressMessages(rsem_alignment_profile(d)), "not nHits")
+  real <- suppressMessages(rsem_alignment_profile(testthat::test_path("fixtures", "rsem-real"), sample_from = "parent_dir"))
+  a <- real[real$sample_id == "sampA" & is.finite(real$n_alignments), ]
+  expect_equal(sum(a$n_alignments * a$n_reads), 2473)  # nHits of the first lines of sampA.cnt
+  rr <- suppressMessages(rsem_reconcile(testthat::test_path("fixtures", "rsem-real"), columns = c("posterior_mean_count", "pme_TPM", "pme_FPKM")))
+  expect_equal(unique(rr$n_beyond_rounding), 0L)
+  expect_true("max_diff_gene" %in% names(rr))
+  expect_error(suppressMessages(rsem_reconcile(testthat::test_path("fixtures", "rsem-real"), columns = "count_sd")), "must be one or more")
+  g <- withr::local_tempdir()
+  gen <- data.frame(gene_id = c("G1", "G2"), "transcript_id(s)" = c("T1", NA), length = 1, effective_length = 1, expected_count = c(1, 2), TPM = c(1, 2), FPKM = c(1, 2), check.names = FALSE)
+  utils::write.table(gen, file.path(g, "s1.genes.results"), sep = "\t", quote = FALSE, row.names = FALSE, na = "")
+  chk <- suppressMessages(rsem_check(g))
+  expect_true(any(chk$check == "missing_ids" & grepl("transcript_id", chk$detail)))
+})
+
+test_that("a pipe keeps what the table holds and how it was made", {
+  d <- testthat::test_path("fixtures", "rsem-real")
+  x <- suppressMessages(d |> rsem_read(metadata = NULL, expr = "count", id = "original"))
+  expect_equal(attr(x, "expr"), "count")
+  f <- suppressMessages(x |> rsem_filter(method = "nonzero"))       # no expr needed
+  expect_equal(attr(f, "expr"), "count")
+  n <- suppressMessages(f |> rsem_normalize(method = "cpm"))        # no expr needed
+  expect_equal(names(attributes(n)$factors), c("sampA", "sampB"))
+  expect_null(attr(n, "expr"))
+  t <- suppressMessages(n |> rsem_transform("log2"))
+  expect_equal(names(attributes(t)$factors), c("sampA", "sampB"))   # kept by the transformation
+  expect_error(suppressMessages(t |> rsem_filter()), "does not record")
+  st <- rsem_steps(t)
+  expect_equal(length(st), 4L)
+  expect_match(st[[1]], "read: count"); expect_match(st[[4]], "transform: log2")
+  # sample QC on a log2 table needs no transform argument
+  set.seed(2)
+  m <- matrix(rexp(120 * 4, 0.1), 120, 4, dimnames = list(paste0("g", 1:120), paste0("S", 1:4)))
+  q <- suppressMessages(as.data.frame(m) |> rsem_transform("log2") |> rsem_sample_qc(n_top = 50))
+  expect_equal(q$parameters$transform, "none")
+  expect_equal(suppressMessages(rsem_sample_qc(as.data.frame(m), n_top = 50))$parameters$transform, "log2")
+})
+
+test_that("rsem_isoform_usage describes the split of a gene's TPM", {
+  x <- data.frame(S1 = c(30, 10, 0, 0, 7), S2 = c(0, 0, 0, 5, 7), row.names = c("t1", "t2", "t3", "t4", "t5"))
+  tx <- data.frame(transcript_id = rownames(x), gene_id = c("g1", "g1", "g2", "g2", "g3"))
+  u <- suppressMessages(rsem_isoform_usage(x, tx2gene = tx))
+  expect_equal(sort(unique(u$gene_id)), c("g1", "g2"))   # g3 has one transcript
+  a <- u[u$gene_id == "g1" & u$sample_id == "S1", ]
+  expect_equal(a$dominant, "t1"); expect_equal(a$dominant_share, 0.75)
+  expect_equal(a$entropy, -(0.75 * log(0.75) + 0.25 * log(0.25)))
+  expect_equal(a$effective_isoforms, exp(a$entropy))
+  expect_true(is.na(u$entropy[u$gene_id == "g1" & u$sample_id == "S2"]))   # no TPM: NA, not 0
+  b <- u[u$gene_id == "g2" & u$sample_id == "S2", ]
+  expect_equal(b$dominant_share, 1); expect_equal(b$entropy, 0); expect_equal(b$n_expressed, 1L)
+  expect_error(rsem_isoform_usage(x, tx2gene = tx[1:3, ]), "not in `tx2gene`")
+})
+
+test_that("rsem_qc_summary joins the quality numbers of the samples", {
+  d <- testthat::test_path("fixtures", "rsem-real")
+  q <- suppressMessages(rsem_qc_summary(d))
+  expect_equal(q$sample_id, c("sampA", "sampB"))
+  expect_equal(q$genes, c(4L, 4L)); expect_equal(q$genes_zero_length, c(1L, 1L))
+  expect_equal(q$n_total, c(2150, 2150)); expect_equal(q$read_type, c(0, 0)); expect_equal(q$model_type, c(0, 0))
+  expect_equal(q$noise_fraction[[1]], 0); expect_true(is.na(q$noise_fraction[[2]]))   # sampB has no .theta here
+  expect_equal(q$files_agree, c(TRUE, TRUE))
+  expect_equal(q$tpm_total[[1]], sum(rsem_read(d, metadata = NULL, expr = "tpm", id = "original")$sampA))
+  d2 <- withr::local_tempdir()
+  file.copy(file.path(d, "sampA.genes.results"), d2)
+  expect_message(q2 <- rsem_qc_summary(d2), "left out")
+  expect_false("n_total" %in% names(q2))
+})
+
+test_that("rsem_as_summarizedexperiment wraps the assays, the samples and the gene IDs", {
+  skip_if_not_installed("SummarizedExperiment")
+  d <- testthat::test_path("fixtures", "rsem-real")
+  a <- suppressMessages(rsem_import(d, metadata = NULL))
+  meta <- tempfile(fileext = ".csv")
+  writeLines(c("sample_id,group", "sampB,treated", "sampA,control"), meta)
+  se <- rsem_as_summarizedexperiment(a, meta)
+  expect_s4_class(se, "SummarizedExperiment")
+  expect_equal(SummarizedExperiment::assayNames(se), c("count", "tpm", "length"))
+  expect_equal(colnames(se), c("sampA", "sampB"))
+  expect_equal(as.character(SummarizedExperiment::colData(se)$group), c("control", "treated"))
+  expect_equal(SummarizedExperiment::assay(se, "count")[, "sampA"], c(GA_ALPHA = 900, GB_BETA = 800, GC_GAMMA = 50, GD_DELTA_X = 400))
+  expect_equal(SummarizedExperiment::rowData(se)$gene_id, rownames(a$count))
+  expect_match(S4Vectors::metadata(se)$steps, "import: count, tpm, length")
+  one <- rsem_as_summarizedexperiment(suppressMessages(rsem_read(d, metadata = NULL, expr = "tpm", id = "original")))
+  expect_equal(SummarizedExperiment::assayNames(one), "tpm")
 })

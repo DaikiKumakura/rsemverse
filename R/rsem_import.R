@@ -49,6 +49,7 @@ rsem_import <- function(data = "data", metadata = "metadata.csv", assays = c("co
       if (!is.null(v)) { attr(out, a) <- v; break }
     }
   }
+  attr(out, "steps") <- sprintf("import: %s of %s", paste(assays, collapse = ", "), if (level == "isoform") "transcripts" else "genes")
   message(sprintf(
     "rsem_import: %d samples, %d rows; assays: %s",
     length(ref_cols), length(ref_rows), paste(assays, collapse = ", ")

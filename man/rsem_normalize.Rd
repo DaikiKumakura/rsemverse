@@ -4,7 +4,7 @@
 \alias{rsem_normalize}
 \title{Normalize between samples}
 \usage{
-rsem_normalize(x, expr, method)
+rsem_normalize(x, expr = attr(x, "expr", exact = TRUE), method)
 }
 \arguments{
 \item{x}{The gene by sample table, as returned by \code{\link[=rsem_read]{rsem_read()}}: gene

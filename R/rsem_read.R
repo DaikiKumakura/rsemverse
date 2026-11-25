@@ -214,7 +214,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
     )
   }
   ann <- if (id == "annotation") .read_annotation(annotation, need_type = FALSE) else NULL
-  if (level == "isoform") return(.read_isoforms(samples, column, species, id, expr, ann, allow_reorder))
+  if (level == "isoform") return(.mark_read(.read_isoforms(samples, column, species, id, expr, ann, allow_reorder), expr, level))
 
   tx_col <- "transcript_id(s)"
   check_tx <- validate_reference && tx_col %in% .rsem_header(samples$path[[1L]])
@@ -239,7 +239,7 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
     res <- as.data.frame(mat, check.names = FALSE)
     attr(res, "gene_ids") <- data.frame(gene = rownames(mat), gene_id = rownames(mat), stringsAsFactors = FALSE)
     if (!is.null(zl)) attr(res, "zero_length") <- zl
-    return(res)
+    return(.mark_read(res, expr, level))
   }
 
   if (id == "annotation") {
@@ -273,6 +273,13 @@ rsem_read <- function(data = "data", metadata = "metadata.csv", species, expr,
     gene_id = rownames(mat), stringsAsFactors = FALSE
   )
   if (!is.null(zl)) attr(res, "zero_length") <- zl
+  .mark_read(res, expr, level)
+}
+
+# What the table holds and where it came from, for the functions that follow it in a pipe.
+.mark_read <- function(res, expr, level) {
+  attr(res, "expr") <- expr
+  attr(res, "steps") <- sprintf("read: %s of %s", expr, if (level == "isoform") "transcripts" else "genes")
   res
 }
 

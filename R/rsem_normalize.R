@@ -70,8 +70,8 @@
 #'   rsem_transform(tmm, "log2")    # log2(TMM-CPM + 1)
 #' }
 #' @export
-rsem_normalize <- function(x, expr, method) {
-  if (missing(expr)) .stopf("`expr` must be \"count\" or \"tpm\".")
+rsem_normalize <- function(x, expr = attr(x, "expr", exact = TRUE), method) {
+  expr <- .need_expr(expr)
   expr <- .choice(expr, c("count", "tpm"), "expr")
   if (missing(method)) .stopf("`method` is required; see ?rsem_normalize.")
   allowed <- if (expr == "count") c("cpm", "tmm", "tmmwsp", "upper_quartile", "deseq2", "quantile") else "quantile"
@@ -117,7 +117,8 @@ rsem_normalize <- function(x, expr, method) {
       deseq2 = "size factors"
     )[[method]], ": ", paste(sprintf("%s %s", names(factors), signif(factors, 4)), collapse = ", "))
   ))
-  res <- .as_table(out, from = x)
+  res <- .as_table(out, from = x, step = paste("normalize:", method), keep_expr = FALSE)
+  attr(res, "factors") <- NULL
   if (!is.null(factors)) attr(res, "factors") <- factors
   res
 }

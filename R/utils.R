@@ -56,9 +56,15 @@
 # `from` is the table the values came from: the gene IDs behind each row
 # (attr "gene_ids") and the transcript-to-gene table (attr "tx2gene") that
 # rsem_read() keeps are carried over for the rows that remain.
-.as_table <- function(m, from = NULL) {
+.as_table <- function(m, from = NULL, step = NULL, keep_expr = TRUE) {
   res <- as.data.frame(m, check.names = FALSE, stringsAsFactors = FALSE)
   if (is.null(from)) return(res)
+  # What the table is (expr) and what was done to it (steps, factors) go along the pipe; the factors are
+  # per sample, so they stay valid when rows are removed.
+  if (keep_expr && !is.null(attr(from, "expr", exact = TRUE))) attr(res, "expr") <- attr(from, "expr", exact = TRUE)
+  if (!is.null(attr(from, "factors", exact = TRUE))) attr(res, "factors") <- attr(from, "factors", exact = TRUE)
+  st <- c(attr(from, "steps", exact = TRUE), step)
+  if (length(st)) attr(res, "steps") <- st
   tf <- attr(from, "transform", exact = TRUE)
   if (!is.null(tf)) attr(res, "transform") <- tf
   g <- attr(from, "gene_ids", exact = TRUE)
@@ -98,4 +104,11 @@
   needed <- if (min_samples < 1) max(1, ceiling(min_samples * n - 1e-9)) else min_samples
   if (needed > n) .stopf("`%s` (%s) is larger than the number of samples (%d).", name, format(min_samples), n)
   needed
+}
+
+# The value that a table made by rsem_read() holds ("count", "tpm", ...), for the `expr` default of the functions
+# that follow it in a pipe.
+.need_expr <- function(expr) {
+  if (is.null(expr)) .stopf("`expr` must be \"count\" or \"tpm\": the table does not record what it holds (it was changed by a transformation or did not come from rsem_read()); say which.")
+  expr
 }

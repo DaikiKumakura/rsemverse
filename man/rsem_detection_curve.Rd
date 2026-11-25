@@ -4,7 +4,12 @@
 \alias{rsem_detection_curve}
 \title{How many genes each detection threshold keeps}
 \usage{
-rsem_detection_curve(x, expr, thresholds = NULL, min_samples = c(1, 0.2, 0.5))
+rsem_detection_curve(
+  x,
+  expr = attr(x, "expr", exact = TRUE),
+  thresholds = NULL,
+  min_samples = c(1, 0.2, 0.5)
+)
 }
 \arguments{
 \item{x}{The gene by sample table, as returned by \code{\link[=rsem_read]{rsem_read()}}: gene

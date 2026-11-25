@@ -6,7 +6,7 @@
 \usage{
 rsem_filter(
   x,
-  expr,
+  expr = attr(x, "expr", exact = TRUE),
   method = NULL,
   min_value = NULL,
   min_samples = 0.2,

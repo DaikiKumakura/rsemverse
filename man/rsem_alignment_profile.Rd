@@ -34,6 +34,6 @@ multi-mapping is, where the mean (\code{alignments_per_read}) does not.
 }
 \examples{
 f <- tempfile(fileext = ".cnt")
-writeLines(c("100 850 50 1000", "800 50 120", "1500 2", "0	100", "1	700", "2	150", "Inf	50"), f)
+writeLines(c("100 850 50 1000", "800 50 120", "1000 2", "0	100", "1	700", "2	150", "Inf	50"), f)
 rsem_alignment_profile(dirname(f), metadata = NULL)
 }

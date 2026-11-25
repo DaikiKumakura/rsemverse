@@ -61,6 +61,6 @@ CSV with \code{sample_id} and \code{ref} names the files.
 
 \examples{
 f <- tempfile(fileext = ".cnt")
-writeLines(c("100 850 50 1000", "800 50 120", "1500 2", "0\t100", "1\t700", "Inf\t50"), f)
+writeLines(c("100 850 50 1000", "800 50 120", "1000 2", "0\t100", "1\t700", "Inf\t50"), f)
 rsem_mapping_qc(dirname(f), metadata = NULL)[, c("sample_id", "n_total", "alignable_fraction")]
 }

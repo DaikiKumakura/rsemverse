@@ -39,11 +39,27 @@
       }
       out
     }
-    first_known <- function(df) {  # df ordered by priority; the first non-missing value per gene_id
+    # The first non-missing value per gene_id, taking the row type with the highest priority (gene, then
+    # transcript, then the other rows) wherever the row is in the file; `*_prio` says which row type it came from.
+    first_known <- function(df) {
+      df <- df[order(df$prio), , drop = FALSE]
       ids <- unique(df$gene_id)
       out <- data.frame(gene_id = ids, stringsAsFactors = FALSE)
       for (f in c("gene_name", "gene_type")) {
         d <- df[!is.na(df[[f]]), , drop = FALSE]
+        d <- d[!duplicated(d$gene_id), , drop = FALSE]
+        out[[f]] <- d[[f]][match(ids, d$gene_id)]
+        out[[paste0(f, "_prio")]] <- d$prio[match(ids, d$gene_id)]
+      }
+      out
+    }
+    merge_parts <- function(parts) {
+      p <- do.call(rbind, parts)
+      ids <- unique(p$gene_id)
+      out <- data.frame(gene_id = ids, stringsAsFactors = FALSE)
+      for (f in c("gene_name", "gene_type")) {
+        d <- p[!is.na(p[[f]]), c("gene_id", f, paste0(f, "_prio")), drop = FALSE]
+        d <- d[order(d[[paste0(f, "_prio")]]), , drop = FALSE]
         d <- d[!duplicated(d$gene_id), , drop = FALSE]
         out[[f]] <- d[[f]][match(ids, d$gene_id)]
       }
@@ -70,14 +86,14 @@
           stringsAsFactors = FALSE
         )
         df <- df[!is.na(df$gene_id), , drop = FALSE]
-        first_known(df[order(df$prio), , drop = FALSE])
+        first_known(df)
       }
       # The gene rows first; the transcript and exon rows of a gene that is already complete are not parsed.
       g <- feat == "gene"
       if (any(g)) {
         kn <- parse_rows(rows[g], feat[g])
         parts[[length(parts) + 1L]] <- kn
-        done <- union(done, kn$gene_id[!is.na(kn$gene_name) & !is.na(kn$gene_type)])
+        done <- union(done, kn$gene_id[!is.na(kn$gene_name_prio) & kn$gene_name_prio == 1L & !is.na(kn$gene_type_prio) & kn$gene_type_prio == 1L])
       }
       rows <- rows[!g]; feat <- feat[!g]
       if (length(rows) && length(done)) {
@@ -88,11 +104,11 @@
       if (length(rows)) {
         kn <- parse_rows(rows, feat)
         parts[[length(parts) + 1L]] <- kn
-        done <- union(done, kn$gene_id[!is.na(kn$gene_name) & !is.na(kn$gene_type)])
+        done <- union(done, kn$gene_id[!is.na(kn$gene_name_prio) & kn$gene_name_prio == 1L & !is.na(kn$gene_type_prio) & kn$gene_type_prio == 1L])
       }
     }
     if (!length(parts)) .stopf("No 'gene', 'transcript' or 'exon' rows found in the GTF file %s.", annotation)
-    a <- first_known(do.call(rbind, parts))
+    a <- merge_parts(parts)
     if (need_type && all(is.na(a$gene_type))) .stopf("The GTF file has no gene_type or gene_biotype attribute.")
   } else {
     .stopf("`annotation` must be a path to a GTF file or a data frame.")

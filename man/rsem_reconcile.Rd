@@ -18,8 +18,10 @@ rsem_reconcile(
 \item{isoform_data}{Folder with the \verb{*.isoforms.results} files; the default
 is \code{data}.}
 
-\item{columns}{Value columns to compare. Any of \code{"expected_count"}, \code{"TPM"}
-and \code{"FPKM"}.}
+\item{columns}{Value columns to compare: \code{"expected_count"}, \code{"TPM"}, \code{"FPKM"} and,
+for files made with \code{--calc-pme} or \code{--calc-ci}, \code{"posterior_mean_count"}, \code{"pme_TPM"}
+and \code{"pme_FPKM"}. Only values that add up over the transcripts of a gene can be
+compared; the posterior deviation, the interval bounds and the quartile variation cannot.}
 
 \item{sample_from}{\code{"filename"} or \code{"parent_dir"}, as in \code{\link[=rsem_read]{rsem_read()}}.}
 
@@ -29,7 +31,8 @@ were written with more digits (default \code{1e-6}).}
 \value{
 A data frame with one row per sample and column: \code{n_genes} compared,
 \code{n_beyond_rounding} (genes whose difference is above the bound),
-\code{max_abs_diff}, the \code{worst_gene}, and the numbers of genes only in the gene
+\code{max_abs_diff} and the gene it belongs to (\code{max_diff_gene}), the \code{worst_gene} (the gene
+that exceeds its bound by most, which can be another gene), and the numbers of genes only in the gene
 file (\code{genes_without_isoforms}) or only in the isoform file
 (\code{isoform_genes_missing}), and \code{transcript_mapping_mismatch}, the number of
 genes whose \code{transcript_id(s)} in the gene file are not the transcripts of

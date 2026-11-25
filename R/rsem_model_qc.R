@@ -76,6 +76,7 @@ rsem_model_qc <- function(data = "data", metadata = NULL, sample_from = "filenam
   }
   dist <- function(what) {
     b <- take(3L, paste(what, "bounds"))
+    if (any(b != round(b))) .stopf("%s: the bounds and span of the %s are not whole numbers.", label, what)
     if (b[3L] != b[2L] - b[1L] || b[3L] < 1) .stopf("%s: the span of the %s (%s) is not upper - lower.", label, what, format(b[3L]))
     p <- take(b[3L], paste("the", what))
     if (any(p < 0) || any(p > 1)) .stopf("%s: the %s has a probability outside 0 to 1.", label, what)
@@ -89,6 +90,7 @@ rsem_model_qc <- function(data = "data", metadata = NULL, sample_from = "filenam
   fl <- dist("fragment length distribution")
   if (model_type < 2) {
     has_optional <- take(1L, "the optional read length flag")
+    if (!has_optional %in% 0:1) .stopf("%s: the optional read length flag (%s) is not 0 or 1.", label, format(has_optional))
     if (has_optional == 1) dist("read length distribution")
   }
   est <- take(1L, "the RSPD flag")

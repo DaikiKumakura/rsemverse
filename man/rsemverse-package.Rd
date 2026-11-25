@@ -4,44 +4,37 @@
 \name{rsemverse-package}
 \alias{rsemverse}
 \alias{rsemverse-package}
-\title{rsemverse: from RSEM results to analysis-ready gene tables}
+\title{rsemverse: RSEM results in R, one step at a time, with the pipe}
 \description{
-rsemverse turns RSEM \verb{*.genes.results} (and \verb{*.isoforms.results}) files
-into one table of gene symbols by samples and prepares that table for
-analysis. Every function takes the same table and returns the same table,
-so the steps chain in any order, and each prints what it did.
+rsemverse reads RSEM \verb{*.genes.results} and \verb{*.isoforms.results} files, checks them, and turns them
+into tables for plots, scores and downstream tools. Every step takes a table and returns a table,
+so the steps chain with \verb{|>}, and each prints one line about what it did. The table remembers what
+it holds (\code{expr}), the original gene IDs, the normalization factors and the steps, so a step needs
+no repeated \verb{expr = }; \code{\link[=rsem_steps]{rsem_steps()}} lists what was done.
 }
-\section{Workflow}{
+\details{
+\if{html}{\out{<div class="sourceCode">}}\preformatted{rsem_read("rsem", species = "human", expr = "count") |>
+  rsem_filter() |> rsem_normalize(method = "tmm") |> rsem_transform("log2") |> rsem_sample_qc()
+}\if{html}{\out{</div>}}
+}
+\section{The functions}{
 
-\enumerate{
-\item \code{\link[=rsem_check]{rsem_check()}}, \code{\link[=rsem_reconcile]{rsem_reconcile()}} and \code{\link[=rsem_read]{rsem_read()}}: check the files and that
-gene and isoform files agree, then read counts, TPM,
-effective lengths or posterior estimates into a gene symbol by sample
-table (and see which gene IDs were merged with \code{\link[=rsem_id_report]{rsem_id_report()}}); find the
-files without a sample table if wanted.
-\item \code{\link[=rsem_detection_curve]{rsem_detection_curve()}} and \code{\link[=rsem_filter]{rsem_filter()}}: see how many genes each
-detection threshold keeps, then remove lowly expressed genes (edgeR
-\code{filterByExpr()} rule, detection thresholds) or keep the most variable.
-\item \code{\link[=rsem_subset]{rsem_subset()}} and \code{\link[=rsem_biotype_profile]{rsem_biotype_profile()}}: keep or remove gene groups
-taken from the OrgDb or from a GTF file (rRNA, snoRNA, lncRNA, ...),
-and see what share of each sample they take. \code{\link[=rsem_mapping_qc]{rsem_mapping_qc()}} reads
-the read assignment statistics of the RSEM \code{.cnt} files, and
-\code{\link[=rsem_sample_qc]{rsem_sample_qc()}} gives PCA, sample correlation and a per-sample summary.
-\item \code{\link[=rsem_normalize]{rsem_normalize()}}: normalize between samples (CPM, TMM, TMMwsp, upper
-quartile, DESeq2 median of ratios, quantile).
-\item \code{\link[=rsem_transform]{rsem_transform()}} and \code{\link[=rsem_fit_reference]{rsem_fit_reference()}} /
-\code{\link[=rsem_apply_reference]{rsem_apply_reference()}}: log2, z-score, centering, ranks, and z-scores
-against a fixed reference group.
-\item \code{\link[=rsem_long]{rsem_long()}} and \code{\link[=rsem_write]{rsem_write()}}: one row per gene and sample for
-ggplot2, or a table with gene IDs and annotation for other tools.
+\itemize{
+\item Read: \code{\link[=rsem_read]{rsem_read()}} (one value), \code{\link[=rsem_import]{rsem_import()}} (several values).
+\item Prepare: \code{\link[=rsem_filter]{rsem_filter()}}, \code{\link[=rsem_subset]{rsem_subset()}}, \code{\link[=rsem_normalize]{rsem_normalize()}}, \code{\link[=rsem_transform]{rsem_transform()}},
+\code{\link[=rsem_fit_reference]{rsem_fit_reference()}} with \code{\link[=rsem_apply_reference]{rsem_apply_reference()}}.
+\item Check the files: \code{\link[=rsem_check]{rsem_check()}}, \code{\link[=rsem_reconcile]{rsem_reconcile()}}, \code{\link[=rsem_id_report]{rsem_id_report()}}.
+\item QC: \code{\link[=rsem_sample_qc]{rsem_sample_qc()}}, \code{\link[=rsem_qc_summary]{rsem_qc_summary()}} (and its parts \code{\link[=rsem_mapping_qc]{rsem_mapping_qc()}},
+\code{\link[=rsem_alignment_profile]{rsem_alignment_profile()}}, \code{\link[=rsem_model_qc]{rsem_model_qc()}}, \code{\link[=rsem_noise_qc]{rsem_noise_qc()}}), \code{\link[=rsem_biotype_profile]{rsem_biotype_profile()}},
+\code{\link[=rsem_length_profile]{rsem_length_profile()}}, \code{\link[=rsem_detection_curve]{rsem_detection_curve()}}.
+\item Transcripts: \code{\link[=rsem_select_isoforms]{rsem_select_isoforms()}}, \code{\link[=rsem_isoform_usage]{rsem_isoform_usage()}}.
+\item Hand over: \code{\link[=rsem_long]{rsem_long()}}, \code{\link[=rsem_write]{rsem_write()}}, \code{\link[=rsem_as_tximport]{rsem_as_tximport()}}, \code{\link[=rsem_as_summarizedexperiment]{rsem_as_summarizedexperiment()}},
+\code{\link[=rsem_steps]{rsem_steps()}}.
 }
 
-Transcripts: \code{\link[=rsem_read]{rsem_read()}} with \code{level = "isoform"} and
-\code{\link[=rsem_select_isoforms]{rsem_select_isoforms()}}. Effective lengths: \code{\link[=rsem_length_profile]{rsem_length_profile()}}.
-
-No gene list and no sample grouping are needed except where a function
-compares with a reference group. Filtering and normalization give the same
-results as edgeR, DESeq2 and limma without depending on them.
+No gene list and no sample grouping are needed except where a function compares with a reference
+group. Filtering and normalization give the same results as edgeR, DESeq2 and limma without
+depending on them.
 }
 
 \seealso{

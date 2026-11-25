@@ -1,7 +1,7 @@
 Package: rsemverse
 Type: Package
 Title: From RSEM Results to Analysis-Ready Gene Tables
-Version: 0.7.2
+Version: 0.8.0
 Authors@R: person("Daiki", "Kumakura", role = c("aut", "cre"),
     email = "55353329+DaikiKumakura@users.noreply.github.com")
 Description: Turns RSEM '*.genes.results' and '*.isoforms.results' files
@@ -41,5 +41,7 @@ Imports:
 Suggests:
     org.Hs.eg.db,
     org.Mm.eg.db,
+    S4Vectors,
+    SummarizedExperiment,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
