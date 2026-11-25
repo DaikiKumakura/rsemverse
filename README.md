@@ -188,9 +188,10 @@ More: [function reference](https://daikikumakura.github.io/rsemverse/reference/)
 
 ## Citation
 
-Cite the archived version: <https://doi.org/10.5281/zenodo.24210459> (all versions). The metadata
-is in [`CITATION.cff`](CITATION.cff).
+Kumakura, D. (2026). *rsemverse: From RSEM Results to Analysis-Ready Gene Tables* [Software]. [DOI: 10.5281/zenodo.24210459](https://doi.org/10.5281/zenodo.24210459).
+
+Citation metadata: [CITATION.cff](CITATION.cff).
 
 ## License
 
-MIT © Daiki Kumakura
+This project is licensed under MIT. See [LICENSE.md](LICENSE.md) for the license terms.
