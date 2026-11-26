@@ -1,95 +1,261 @@
 ---
-title: "From RSEM files to z-scores against controls"
+title: "From RSEM files to a table you can plot, one pipe at a time"
 ---
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(eval = FALSE)
 ```
 
-This page goes from a folder of RSEM files to values ready for plots, one pipe at a time. The folder
-holds one `*.genes.results` file per sample (and, for the last section, the `*.isoforms.results`
-files), and a sample table names the groups:
+This page goes from a folder of RSEM files to the table a plot or a score needs. Every step takes a table and
+returns a table, so the steps chain with `|>`, and each prints one line about what it did. To let you run every
+line, it uses the three small RSEM files that come with the package (3 samples, 44 genes). With your own files,
+only the first two lines change. All output below comes from running the code.
+
+```{r}
+library(rsemverse)
+
+ex   <- system.file("extdata", "example", package = "rsemverse")
+dir  <- file.path(ex, "data")            # a folder with one *.genes.results file per sample
+meta <- file.path(ex, "metadata.csv")    # the sample table: sample_id, ref (file name), and any groups
+```
 
 ```text
-rsem/                     metadata.csv
-  CTRL_1.genes.results      sample_id,ref,group
-  CTRL_2.genes.results      CTRL_1,CTRL_1.genes.results,control
-  DRUG_1.genes.results      CTRL_2,CTRL_2.genes.results,control
-  DRUG_2.genes.results      DRUG_1,DRUG_1.genes.results,drug
-                            DRUG_2,DRUG_2.genes.results,drug
+data/        metadata.csv
+  S1.genes.results      sample_id,ref
+  S2.genes.results      S1,S1.genes.results
+  S3.genes.results      S2,S2.genes.results
+                        S3,S3.genes.results
 ```
 
 ## 1. Check, then read
 
 ```{r}
-library(rsemverse)
-rsem_check("rsem")                                   # every problem in the files, all at once
-tpm <- rsem_read("rsem", "metadata.csv", species = "human", expr = "tpm")
+rsem_check(dir)
 ```
 
-`rsem_check()` stops nothing; it lists. `rsem_read()` stops on the same errors (a missing file, genes
-in another order, a different set of transcripts for a gene). With `metadata = NULL` it finds the files
-and names the samples after them.
+```text
+rsem_check: 3 files; 0 errors, 0 warnings, 0 notes
+```
+
+`rsem_check()` reads every file and lists every problem at once (a missing column, genes in another order, a
+different set of transcripts for a gene, non-finite values). It stops nothing; when it finds something, the
+result is a table with the file, the check and the detail. Then read:
+
+```{r}
+tpm <- rsem_read(dir, meta, species = "human", expr = "tpm")
+head(tpm, 3)
+```
+
+```text
+rsem_read: 3 samples, 44 genes -> 43 rows (species = human, expr = tpm, org.Hs.eg.db 3.22.0)
+  with symbol: 42 genes (1 symbols merged from several IDs); kept as original IDs: 2 genes
+
+             S1        S2        S3
+TP53   13599.42  16773.55  12812.60
+GAPDH  18999.16  12154.88  12726.93
+ACTB    3421.50   3993.31   3916.50
+```
+
+The result is a table with gene symbols as rows and samples as columns. The line above it tells you what
+happened: 44 genes became 43 rows because the IDs of one symbol were **summed** (never the maximum), and 2 IDs
+without a symbol kept their ID. `expr` chooses the value: `"count"`, `"tpm"`, `"fpkm"`, `"length"` and others.
+Without a sample table (`metadata = NULL`), the files in the folder are found and each sample is named after its
+file.
+
+The table remembers what it holds, so the steps below need no `expr = `:
+
+```{r}
+attr(tpm, "expr")        # "tpm"
+attr(tpm, "gene_ids")    # the original gene IDs behind each row
+```
 
 ## 2. Look at the effective lengths before tximport or DESeq2
 
 ```{r}
-len <- rsem_read("rsem", "metadata.csv", species = "human", expr = "length")
-attr(len, "zero_length")                             # genes with length 0, per sample
-rsem_length_profile(len) |> subset(zero_fraction > 0 & zero_fraction < 1)
+len <- rsem_read(dir, meta, species = "human", expr = "length")
+attr(len, "zero_length")        # genes with effective length 0, per sample
 ```
 
-Genes with length 0 in some samples are the ones that stop `DESeqDataSetFromTximport()`. Removing them
-(`rsem_as_tximport(zero_length = "drop")`) or importing transcript-level files avoids changing their
-length offset.
+```text
+rsem_read: 3 samples, 44 genes -> 43 rows (species = human, expr = length, org.Hs.eg.db 3.22.0)
+  with symbol: 42 genes (1 symbols merged from several IDs); kept as original IDs: 2 genes
+  genes with effective length 0: 0 in at least one sample, 0 in every sample
 
-## 3. Choose a detection threshold
+S1 S2 S3
+ 0  0  0
+```
+
+None here. In real data, genes with an effective length of 0 in some samples are the ones that stop
+`DESeqDataSetFromTximport()`. `rsem_length_profile(len)` gives per gene the median and mean length, the
+`zero_fraction` and `max_min_ratio` (how much the length differs between samples), so you can pick out the genes
+to drop (`rsem_as_tximport(zero_length = "drop")`) or to take from transcript-level files.
+
+## 3. Choose a detection threshold, then filter
 
 ```{r}
-tpm |> rsem_detection_curve(thresholds = c(0.5, 1, 2, 5), min_samples = c(1, 0.5))
+tpm |> rsem_detection_curve(thresholds = c(1, 5), min_samples = c(1, 0.5))
+```
+
+```text
+rsem_detection_curve: 43 genes x 3 samples; 2 thresholds x 2 sample requirements (TPM)
+  threshold min_samples samples_needed genes share genes_mean
+1         1         1.0              1    43     1         43
+2         1         0.5              2    43     1         43
+3         5         1.0              1    43     1         43
+4         5         0.5              2    43     1         43
+```
+
+Each row is the number of genes `rsem_filter()` would keep with those settings: TPM above `threshold` in at
+least `min_samples` of the samples (a count if at least 1, a share if below 1). Here all 43 pass every setting,
+because the example genes are all highly expressed; in real data the number falls as the threshold rises, and you
+look for where it levels off. Then filter with the setting you chose:
+
+```{r}
 filtered <- tpm |> rsem_filter(min_value = 1, min_samples = 0.5)
 ```
 
-Each row of the curve is the number of genes `rsem_filter()` keeps with those settings. Neither call
-needs `expr = "tpm"`: the table from `rsem_read()` knows what it holds.
-
-## 4. Remove rRNA and see the gene-type composition
-
-```{r}
-gtf <- "gencode.v29.annotation.gtf.gz"               # the annotation the RSEM reference was built from
-tpm |> rsem_biotype_profile(gtf, types = c("protein_coding", "lncRNA", "rRNA", "Mt_rRNA"))
-filtered <- filtered |> rsem_subset(remove = c("rrna", "mito_rrna"), annotation = gtf)
+```text
+rsem_filter (detected): kept 43 of 43 genes (TPM >= 1 in >= 2 of 3 samples); removed 0
 ```
 
-## 5. Z-scores against the controls
+## 4. Keep the gene types you want
 
 ```{r}
-ref <- filtered |> rsem_fit_reference("control", metadata = "metadata.csv", group = "group")
-z   <- filtered |> rsem_apply_reference(ref, zero_sd = "drop")
-rsem_steps(z)                                        # what was done, in order
+protein <- filtered |> rsem_subset("human", keep = "protein_coding")
+rsem_steps(protein)
 ```
 
-`ref` keeps the control means and standard deviations on the `log2(TPM + 1)` scale. A later batch on the
-same scale is scored against the same controls with `rsem_apply_reference(new_tpm, ref)`.
+```text
+rsem_subset: kept 41 of 43 genes; keep protein_coding (genes per group: protein_coding 41)
 
-## 6. Plot or share
-
-```{r}
-long <- z |> rsem_long("metadata.csv")
-ggplot2::ggplot(subset(long, gene == "CDKN1A"), ggplot2::aes(group, value)) +
-  ggplot2::geom_point() + ggplot2::labs(y = "z-score against controls")
-
-tpm |> rsem_write("tpm.tsv.gz", annotation = gtf)    # gene, gene IDs, gene type, samples
-tpm |> rsem_write("tpm.gct", format = "gct")         # for GSEA and ssGSEA
+[1] "read: tpm of genes"
+[2] "filter: detected, kept 43 of 43 genes"
+[3] "subset: kept 41 of 43 genes"
 ```
 
-## 7. Transcripts
+`rsem_subset()` keeps or removes gene groups: `"protein_coding"`, `"mito"`, `"ribo"` (ribosomal protein genes), `"hb"` (hemoglobin), `"sex"`, `"ercc"`, and
+with a GTF file of the reference `"rrna"`, `"lncrna"` and other types. `rsem_steps()` lists what was done to the
+table, in order. The table carries this list with it.
+
+## 5. Counts: normalize and transform
+
+For values that depend on library size, start from counts:
 
 ```{r}
-iso  <- rsem_read("rsem", "metadata.csv", species = "human", expr = "tpm", level = "isoform")
+logcpm <- rsem_read(dir, meta, species = "human", expr = "count") |>
+  rsem_filter() |>
+  rsem_normalize(method = "tmm") |>
+  rsem_transform("log2")
+```
+
+```text
+rsem_read: 3 samples, 44 genes -> 43 rows (species = human, expr = count, org.Hs.eg.db 3.22.0)
+rsem_filter (edger): kept 42 of 43 genes (CPM >= 1260 in >= 3 of 3 samples and total count >= 15); removed 1
+rsem_normalize (tmm, count): 42 genes x 3 samples; effective library sizes: S1 6587, S2 7145, S3 7827
+rsem_transform: 42 genes x 3 samples; log2(value + 1)
+```
+
+`rsem_filter()` with no settings uses the edgeR rule for counts (the thresholds adapt to the library sizes: here
+CPM ≥ 1260 because the example libraries are tiny). `rsem_normalize()` offers CPM, TMM, TMMwsp, upper quartile,
+DESeq2's median of ratios and quantile; it equals edgeR and DESeq2 on the same input. `rsem_transform()` offers
+`"log2"`, `"zscore"`, centering and ranks, and they can be chained: `rsem_transform(c("log2", "zscore"))`.
+
+## 6. Quality of the samples
+
+```{r}
+qc <- tpm |> rsem_filter(min_value = 1, min_samples = 0.5) |> rsem_transform("log2") |> rsem_sample_qc()
+qc$sample_summary
+```
+
+```text
+rsem_sample_qc: 43 genes x 3 samples; PCA on 43 genes (PC1 69.2%, PC2 30.8% of their variance); spearman
+correlation on 43 genes (detected), median between samples 0.938
+
+  sample_id detected_genes median_correlation min_correlation most_similar rle_median   rle_iqr
+1        S1             43          0.9392933       0.9383872           S3          0 0.03915251
+2        S2             43          0.9168680       0.8953488           S1          0 0.42195828
+3        S3             43          0.9177741       0.8953488           S1          0 0.18511442
+```
+
+`rsem_sample_qc()` knows the table is already log2 and does not transform it again. `qc$pca_scores` has the
+principal components for a plot, `qc$correlation_matrix` the sample correlations; the summary gives per sample the
+detected genes, how well it correlates with the others, its nearest sample and the relative log expression (a
+sample whose `rle_iqr` is far above the others deserves a look).
+
+## 7. Z-scores against control samples
+
+To score samples against a set of controls, fit the reference once and apply it. Here S1 and S2 stand in as
+controls (two samples are the minimum; use many more):
+
+```{r}
+meta2 <- tempfile(fileext = ".csv")
+writeLines(c("sample_id,ref,group",
+             "S1,S1.genes.results,control", "S2,S2.genes.results,control", "S3,S3.genes.results,treated"), meta2)
+
+tp  <- rsem_read(dir, meta2, species = "human", expr = "tpm") |> rsem_filter(min_value = 1, min_samples = 0.5)
+ref <- rsem_fit_reference(tp, reference = "control", metadata = meta2, group = "group")
+z   <- tp |> rsem_apply_reference(ref)
+round(head(z, 3), 2)
+```
+
+```text
+rsem_fit_reference: 43 genes, 2 reference samples (S1, S2); log2(value + 1); 0 genes with standard deviation 0
+rsem_apply_reference: 43 genes x 3 samples against 2 reference samples; standard deviation 0: 0 genes (set to NA); ...
+
+         S1    S2    S3
+TP53  -0.71  0.71 -1.11
+GAPDH  0.71 -0.71 -0.56
+ACTB  -0.71  0.71  0.53
+```
+
+`ref` keeps each gene's mean and standard deviation in the controls on the `log2(TPM + 1)` scale. A later batch
+on the same scale is scored against the same controls with `rsem_apply_reference(new_tpm, ref)`, so adding a
+sample never changes anyone else's value. A gene whose standard deviation is 0 in the controls cannot be scored;
+`zero_sd = "drop"` removes it, and the default sets it to `NA`.
+
+## 8. Plot or share
+
+```{r}
+long <- protein |> rsem_long(meta)
+head(long, 3)
+
+protein |> rsem_write("tpm.tsv")                   # gene, gene ID, samples
+protein |> rsem_write("tpm.gct", format = "gct")   # for GSEA and ssGSEA
+```
+
+```text
+rsem_long: 123 rows (41 genes x 3 samples) with 1 sample column(s): ref (text)
+
+  gene sample_id    value              ref
+1 TP53        S1 13599.42 S1.genes.results
+2 TP53        S2 16773.55 S2.genes.results
+3 TP53        S3 12812.60 S3.genes.results
+```
+
+`rsem_long()` gives one row per gene and sample, joined with every column of your sample table (group, batch,
+age and so on), the layout `ggplot2` wants. `rsem_write()` writes the gene symbol, the original gene ID and the
+samples:
+
+```text
+gene    gene_id             S1          S2          S3
+TP53    ENSG00000141510.5   13599.4209  16773.5477  12812.5954
+```
+
+## 9. With a GTF and with isoforms
+
+Two things need files that the example does not include: the annotation your RSEM reference was built from (a GTF), and the `*.isoforms.results` files:
+
+```{r}
+gtf <- "gencode.v29.annotation.gtf.gz"
+tpm |> rsem_biotype_profile(gtf, types = c("protein_coding", "lncRNA", "rRNA", "Mt_rRNA"))   # share per type
+filtered |> rsem_subset(remove = c("rrna", "mito_rrna"), annotation = gtf)                     # remove rRNA
+
+iso  <- rsem_read(dir, meta, species = "human", expr = "tpm", level = "isoform")
 main <- iso |> rsem_select_isoforms(min_tpm = 1, min_fraction = 0.1, rule = "all")
-iso |> rsem_isoform_usage()                          # dominant share and entropy per gene and sample
+iso  |> rsem_isoform_usage()          # dominant share and entropy per gene and sample
 ```
 
-The selected values are the original estimates; to quantify against the selection, build a new reference
-and rerun RSEM.
+`rsem_subset(remove = "rrna", annotation = gtf)` stops if the GTF has no such genes, rather than removing
+nothing. The selected isoform values are the original estimates; to quantify against the selection, build a new
+reference and rerun RSEM. For the whole folder at once, `rsem_import()` reads several values together and
+`rsem_as_tximport()` hands them to DESeq2; see the [function reference](../reference/index.html).
