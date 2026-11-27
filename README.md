@@ -1,6 +1,7 @@
 # rsemverse
 
 <!-- badges: start -->
+[![R-universe](https://daikikumakura.r-universe.dev/badges/rsemverse)](https://daikikumakura.r-universe.dev/rsemverse)
 [![R-CMD-check](https://github.com/DaikiKumakura/rsemverse/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/DaikiKumakura/rsemverse/actions/workflows/R-CMD-check.yaml)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24210459.svg)](https://doi.org/10.5281/zenodo.24210459)
 <!-- badges: end -->
